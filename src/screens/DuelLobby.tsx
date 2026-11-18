@@ -1,27 +1,31 @@
-// Entrée du Duel : choisir son pseudo, créer un salon ou en rejoindre un avec son code.
+// Entrée du Multijoueur : créer un salon ou en rejoindre un avec son code.
+// Le pseudo, l'avatar et l'épingle viennent du profil (plus de saisie ici).
 
-import { useMemo, useState } from 'preact/hooks';
-import { MAX_NAME_LENGTH, ROOM_CODE_LENGTH, cleanName, isValidCode, normalizeCode } from '../../shared/duel';
-import { goHome, openDuelRoom } from '../app';
+import { useEffect, useState } from 'preact/hooks';
+import { ROOM_CODE_LENGTH, isValidCode, normalizeCode } from '../../shared/duel';
+import { goHome, openDuelRoom, showProfile } from '../app';
 import { clickSound, unlockAudio } from '../audio/sfx';
-import { ApiError, api, lastIdentity, loadIdentity, saveIdentity, savedName } from '../duel/client';
+import { ApiError, api, lastIdentity, loadIdentity, saveIdentity } from '../duel/client';
 import { save, updateProfile } from '../state/save';
 import { t } from '../i18n/fr';
+import { PinArt } from '../pins/PinArt';
+import { AvatarView } from '../profile/Avatar';
 
 export function DuelLobby({ initialCode = '' }: { initialCode?: string }) {
-  const fallbackName = useMemo(() => `DX-${1000 + Math.floor(Math.random() * 9000)}`, []);
-  const [name, setName] = useState(save.value.profile.name || savedName());
+  const profile = save.value.profile;
+  // Nouveau joueur sans pseudo : on lui en choisit un, enregistré dans son profil.
+  const [autoName, setAutoName] = useState(false);
+  useEffect(() => {
+    if (!save.peek().profile.name) {
+      updateProfile({ name: `DX-${1000 + Math.floor(Math.random() * 9000)}` });
+      setAutoName(true);
+    }
+  }, []);
   const [code, setCode] = useState(normalizeCode(initialCode));
   const [busy, setBusy] = useState<'create' | 'join' | null>(null);
   const [error, setError] = useState('');
   const resumable = lastIdentity();
 
-  /** Pseudo saisi (ou proposé) : il devient celui du profil. */
-  const finalName = () => {
-    const n = cleanName(name) || fallbackName;
-    updateProfile({ name: n });
-    return n;
-  };
   const look = () => ({ avatar: save.value.profile.avatar, pin: save.value.profile.pin });
 
   const fail = (err: unknown) => {
@@ -37,7 +41,7 @@ export function DuelLobby({ initialCode = '' }: { initialCode?: string }) {
     setBusy('create');
     setError('');
     try {
-      const r = await api.create(finalName(), look());
+      const r = await api.create(save.value.profile.name, look());
       openDuelRoom(saveIdentity(r));
     } catch (err) {
       fail(err);
@@ -52,7 +56,7 @@ export function DuelLobby({ initialCode = '' }: { initialCode?: string }) {
     setBusy('join');
     setError('');
     try {
-      const r = await api.join(code, finalName(), loadIdentity(code), look());
+      const r = await api.join(code, save.value.profile.name, loadIdentity(code), look());
       openDuelRoom(saveIdentity(r));
     } catch (err) {
       fail(err);
@@ -76,17 +80,18 @@ export function DuelLobby({ initialCode = '' }: { initialCode?: string }) {
           </button>
         )}
 
-        <label class="field">
-          <span>{t.duel.name}</span>
-          <input
-            type="text"
-            maxLength={MAX_NAME_LENGTH}
-            value={name}
-            placeholder={t.duel.namePlaceholder(fallbackName)}
-            onInput={(e) => setName(e.currentTarget.value)}
-            autoComplete="nickname"
-          />
-        </label>
+        <section class="lobby-me">
+          <AvatarView avatar={profile.avatar} size={56} />
+          <div class="lobby-me-text">
+            <span class="lobby-me-label">{t.duel.playingAs}</span>
+            <strong class="lobby-me-name">{profile.name}</strong>
+            {autoName && <small>{t.duel.autoName}</small>}
+          </div>
+          <PinArt id={profile.pin} height={48} />
+          <button class="link-button" onClick={showProfile}>
+            {t.duel.editProfile}
+          </button>
+        </section>
 
         <div class="duel-choices">
           <section class="duel-choice">

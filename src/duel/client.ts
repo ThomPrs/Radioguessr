@@ -26,7 +26,6 @@ const ID_KEY = (code: string) => `radioguessr:duel:${code}`;
 const LAST_KEY = 'radioguessr:duel:last';
 /** Identité de l'onglet courant (deux onglets = deux joueurs possibles). */
 const TAB_KEY = 'radioguessr:duel:tab';
-const NAME_KEY = 'radioguessr:duel-name';
 const IDENTITY_TTL_MS = 2 * 3600 * 1000;
 
 function parse(raw: string | null): Identity | null {
@@ -86,22 +85,6 @@ export function forgetIdentity(code: string): void {
     if (tabIdentity()?.code === code) sessionStorage.removeItem(TAB_KEY);
     localStorage.removeItem(ID_KEY(code));
     if (localStorage.getItem(LAST_KEY) === code) localStorage.removeItem(LAST_KEY);
-  } catch {
-    // sans importance
-  }
-}
-
-export function savedName(): string {
-  try {
-    return localStorage.getItem(NAME_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-export function rememberName(name: string): void {
-  try {
-    localStorage.setItem(NAME_KEY, name);
   } catch {
     // sans importance
   }

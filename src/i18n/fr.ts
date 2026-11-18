@@ -64,8 +64,9 @@ export const t = {
   duel: {
     title: 'Multijoueur',
     intro: 'Jusqu’à 8 DXeurs, les mêmes 5 stations. Chacun plante sa punaise sans voir celles des autres.',
-    name: 'Votre indicatif (pseudo)',
-    namePlaceholder: (n: string) => `ex. ${n}`,
+    playingAs: 'Vous jouez en tant que',
+    autoName: 'Pseudo choisi pour vous, modifiable dans votre profil.',
+    editProfile: 'Modifier mon profil',
     create: 'Créer un salon',
     creating: 'Préparation des stations…',
     or: 'ou',
