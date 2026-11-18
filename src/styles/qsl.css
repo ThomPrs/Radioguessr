@@ -270,13 +270,15 @@
   width: min(560px, 92vw);
   aspect-ratio: 3 / 2;
   perspective: 1400px;
+  /* Distance de sortie commune à tous les morceaux (70 % de la hauteur de l'enveloppe) */
+  --env-drop: calc(min(560px, 92vw) * 2 / 3 * 0.7);
   animation: env-arrive 0.85s cubic-bezier(0.2, 0.8, 0.3, 1.05) both;
 }
 @keyframes env-arrive {
   from { transform: translate(-30vw, 90vh) rotate(-28deg) scale(0.7); }
   to { transform: translate(0, 0) rotate(-2deg); }
 }
-.env-back, .env-front, .env-flap { position: absolute; transition: transform 0.6s ease, opacity 0.5s ease; }
+.env-back, .env-front, .env-flap { position: absolute; transition: transform 0.6s ease, translate 0.6s ease, opacity 0.5s ease; }
 .env-back { inset: 0; background: #ddd0b3; box-shadow: 0 18px 40px rgb(0 0 0 / 0.5); z-index: 1; }
 .env-card {
   position: absolute;
@@ -373,7 +375,12 @@
 .step-out .env-card { transform: translateY(-62%); }
 .step-present .env-card, .step-stamped .env-card { z-index: 6; transform: translateY(-4%) scale(1.04); }
 .step-present .env-back, .step-present .env-front, .step-present .env-flap,
-.step-stamped .env-back, .step-stamped .env-front, .step-stamped .env-flap { transform: translateY(70%); opacity: 0; pointer-events: none; }
+.step-stamped .env-back, .step-stamped .env-front, .step-stamped .env-flap {
+  /* « translate » s'ajoute au « transform » : le rabat reste ouvert et tout descend d'un bloc */
+  translate: 0 var(--env-drop);
+  opacity: 0;
+  pointer-events: none;
+}
 .step-stamped .env-back, .step-stamped .env-front, .step-stamped .env-flap { visibility: hidden; }
 .step-stamped .env-stage, .env-stage.step-stamped { animation: none; transform: rotate(0); }
 
