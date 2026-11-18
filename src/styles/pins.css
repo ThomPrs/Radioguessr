@@ -1,7 +1,8 @@
 /* ── Épingles ──────────────────────────────────────────────────────────── */
-.pin-badge { display: inline-block; vertical-align: middle; flex: none; overflow: visible; }
-.pin-badge.is-locked { filter: grayscale(1) brightness(0.55) contrast(0.6); opacity: 0.45; }
-.pin-badge.rarity-legendary:not(.is-locked) { animation: pin-shine 2.6s ease-in-out infinite; }
+.pin-art { display: inline-block; vertical-align: middle; flex: none; }
+.pin-art.is-locked { filter: grayscale(1) brightness(0.5) contrast(0.6); opacity: 0.4; }
+.pin-art.rarity-legendary:not(.is-locked) { animation: pin-shine 2.6s ease-in-out infinite; }
+.pin-art .pin-glow { animation: glow 2.4s ease-in-out infinite; }
 @keyframes pin-shine { 50% { filter: drop-shadow(0 0 6px #f3d778) brightness(1.12); } }
 
 .rarity-tag { font-family: var(--font-title); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; padding: 2px 8px; border: 2px solid currentColor; transform: rotate(-3deg); display: inline-block; }
@@ -214,15 +215,16 @@
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 1;
+  min-height: 92px;
   padding: 4px;
   background: none;
   border: 2px dashed transparent;
-  border-radius: 50%;
+  border-radius: 12px;
   color: #3b2414;
   font-size: 0.8rem;
 }
-.cork-slot:not(:disabled):hover { transform: rotate(-6deg) scale(1.06); }
+.cork-slot:not(:disabled):hover .cork-pin { transform: rotate(0deg) translateY(-3px) !important; }
+.cork-pin { display: inline-block; line-height: 0; transform-origin: 50% 97%; transition: transform 0.15s; }
 .cork-slot.is-selected { border-color: var(--stamp-red); border-style: solid; background: rgb(255 255 255 / 0.25); }
 .cork-slot:disabled { opacity: 1; cursor: default; }
 .cork-none { font-style: italic; border-color: rgb(59 36 20 / 0.4); }
@@ -242,24 +244,11 @@
   .member-card-body { flex-direction: column; align-items: flex-start; }
 }
 
-/* ── Marqueur planté sur la carte : l'épingle au bout de son aiguille ──── */
-.pin-marker { position: relative; width: 44px; height: 64px; }
-.pin-needle { position: absolute; inset: 0; }
-.pin-head {
-  position: absolute;
-  left: 4px;
-  top: 0;
-  width: 36px;
-  height: 36px;
-  line-height: 0;
-  filter: drop-shadow(1px 3px 1.5px rgb(0 0 0 / 0.35));
-}
-/* Multijoueur : anneau à la couleur du joueur */
-.pin-head.has-ring { border-radius: 50%; box-shadow: 0 0 0 3px var(--ring), 0 0 0 4.5px #3a3632; }
+/* ── Marqueur planté sur la carte : l'épingle debout, pointe sur le point visé ── */
+.pin-marker { position: relative; }
+.pin-marker .pin-art { position: absolute; left: 0; top: 0; }
 .pin-label {
   position: absolute;
-  left: 42px;
-  top: 6px;
   white-space: nowrap;
   font-family: var(--font-type);
   font-size: 11px;
@@ -274,8 +263,6 @@
 }
 .pin-number {
   position: absolute;
-  left: -4px;
-  top: -5px;
   width: 17px;
   height: 17px;
   border-radius: 50%;
@@ -305,7 +292,7 @@
     repeating-linear-gradient(0deg, rgb(47 93 140 / 0.08) 0 1px, transparent 1px 6px);
   margin-bottom: 8px;
 }
-.map-preview .pin-marker { margin-bottom: -6px; }
+.map-preview .pin-marker { margin-bottom: -4px; }
 .home-profile-pin { line-height: 0; margin-top: -8px; }
 .kraft-inuse { margin: 0; color: #ffe48a; font-family: var(--font-title); }
 .kraft-caption .stamp-button { margin-top: 0; }

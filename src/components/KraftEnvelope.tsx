@@ -5,7 +5,7 @@ import { useEffect, useState } from 'preact/hooks';
 import type { PinDef } from '../../shared/pins';
 import { pinSound, stampSound, swooshSound, tearSound } from '../audio/sfx';
 import { t } from '../i18n/fr';
-import { PinBadge } from '../pins/PinBadge';
+import { PinArt } from '../pins/PinArt';
 import { reducedMotion } from '../state/prefs';
 import { save, updateProfile } from '../state/save';
 
@@ -74,7 +74,7 @@ export function KraftEnvelope({ pin, count, onClose }: Props) {
       <div class={`kraft-stage step-${step} rarity-${pin.rarity}`}>
         <div class="kraft-burst" aria-hidden="true" />
         <div class="kraft-pin">
-          <PinBadge id={pin.id} size={150} />
+          <PinArt id={pin.id} height={190} />
         </div>
         <button class="kraft-envelope" onClick={() => setOpened(true)} disabled={opened} aria-label={t.pins.open}>
           <span class="kraft-strip" aria-hidden="true" />

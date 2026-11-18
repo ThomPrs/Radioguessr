@@ -21,7 +21,7 @@ import { clickSound, pinSound, stampSound } from '../audio/sfx';
 import { goHome, openDuelLobby } from '../app';
 import { ChatPanel } from '../components/ChatPanel';
 import { KraftEnvelope } from '../components/KraftEnvelope';
-import { PinBadge } from '../pins/PinBadge';
+import { PinArt } from '../pins/PinArt';
 import { AvatarView } from '../profile/Avatar';
 import { EnvelopeReveal } from '../components/EnvelopeReveal';
 import { MapView } from '../components/MapView';
@@ -415,7 +415,7 @@ function Results({ session, view }: { session: DuelSession; view: RoomView }) {
                   {player.name}
                   {player.id === view.youId && <em class="player-tag"> ({t.duel.youTag})</em>}
                 </span>
-                {player.pin && <PinBadge id={player.pin} size={26} />}
+                {player.pin && <PinArt id={player.pin} height={32} />}
                 <span class="ranking-total">{formatInt(player.total)}</span>
               </li>
             ))}

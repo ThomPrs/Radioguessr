@@ -4,7 +4,7 @@
 import { signal, effect } from '@preact/signals';
 import { DEFAULT_AVATAR, cleanLook, type Avatar } from '../../shared/avatars';
 import { cleanName } from '../../shared/duel';
-import { PIN_IDS, STARTER_PIN } from '../../shared/pins';
+import { PIN_IDS, STARTER_PIN, normalizePinId } from '../../shared/pins';
 import { collect, type CollectOutcome, type QslCard } from '../../shared/qsl';
 import type { Round } from '../../shared/types';
 
@@ -103,9 +103,13 @@ export function migrate(raw: unknown): SaveData {
   const def = defaultSave();
   const d = data as Partial<SaveData>;
   const pins: Record<string, number> = {};
-  for (const [id, n] of Object.entries(d.pins ?? {})) if (PIN_IDS.has(id) && Number(n) > 0) pins[id] = Math.floor(Number(n));
+  // Les anciennes épingles (badges illustrés) sont converties en épingles de même rareté, doublons cumulés.
+  for (const [rawId, n] of Object.entries(d.pins ?? {})) {
+    const id = normalizePinId(rawId);
+    if (id && Number(n) > 0) pins[id] = (pins[id] ?? 0) + Math.floor(Number(n));
+  }
   pins[STARTER_PIN] = Math.max(1, pins[STARTER_PIN] ?? 0); // la punaise de départ est toujours là
-  const look = cleanLook({ avatar: d.profile?.avatar, pin: d.profile?.pin });
+  const look = cleanLook({ avatar: d.profile?.avatar, pin: d.profile?.pin }); // convertit aussi l'ancien identifiant
   return {
     version: 2,
     album: d.album ?? {},

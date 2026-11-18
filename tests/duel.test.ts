@@ -216,11 +216,11 @@ describe('variables Upstash', () => {
 
 describe('apparence des joueurs', () => {
   it('avatar et épingle visibles des autres, valeurs inconnues remplacées', async () => {
-    const h = await createRoom('Alice', T0, ROUNDS, { avatar: { face: 'chat', bg: 2 }, pin: 'globe' });
+    const h = await createRoom('Alice', T0, ROUNDS, { avatar: { face: 'chat', bg: 2 }, pin: 'perle-nacre' });
     const b = await joinRoom(h.code, 'Bob', NOBODY, T0 + 100, { avatar: { face: 'dragon', bg: 42 }, pin: 'fausse' });
     const v = await getRoom(h.code, cred(b), T0 + 200);
     expect(v.players.map((p) => [p.name, p.avatar, p.pin])).toEqual([
-      ['Alice', { face: 'chat', bg: 2 }, 'globe'],
+      ['Alice', { face: 'chat', bg: 2 }, 'perle-nacre'],
       ['Bob', { face: 'operatrice', bg: 0 }, 'punaise'],
     ]);
   });

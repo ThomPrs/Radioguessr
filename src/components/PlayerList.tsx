@@ -2,7 +2,7 @@
 
 import { PLAYER_COLORS, type PlayerView } from '../../shared/duel';
 import { formatInt } from '../format';
-import { PinBadge } from '../pins/PinBadge';
+import { PinArt } from '../pins/PinArt';
 import { AvatarView } from '../profile/Avatar';
 import { t } from '../i18n/fr';
 
@@ -36,7 +36,7 @@ export function PlayerList({ players, youId, phase }: Props) {
               {p.id === youId && <em class="player-tag"> ({t.duel.youTag})</em>}
               {p.isHost && <span class="player-host">{t.duel.host}</span>}
             </span>
-            {p.pin && <PinBadge id={p.pin} size={24} />}
+            {p.pin && <PinArt id={p.pin} height={30} />}
             {status && <span class={`player-status ${status.cls}`}>{status.label}</span>}
             {phase !== 'waiting' && <span class="player-total">{formatInt(p.total)}</span>}
           </li>

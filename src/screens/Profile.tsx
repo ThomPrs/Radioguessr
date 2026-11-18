@@ -7,7 +7,8 @@ import { PINS, RARITY_ORDER } from '../../shared/pins';
 import { goHome } from '../app';
 import { clickSound, pinSound } from '../audio/sfx';
 import { t } from '../i18n/fr';
-import { PinBadge } from '../pins/PinBadge';
+import { PinArt } from '../pins/PinArt';
+import { hashString } from '../../shared/rng';
 import { PinMarker } from '../pins/PinMarker';
 import { AvatarView } from '../profile/Avatar';
 import { save, updateProfile } from '../state/save';
@@ -125,7 +126,9 @@ export function Profile() {
                   updateProfile({ pin: p.id });
                 }}
               >
-                <PinBadge id={p.id} size={58} owned={n > 0} />
+                <span class="cork-pin" style={{ transform: `rotate(${(hashString(p.id) % 25) - 12}deg)` }}>
+                  <PinArt id={p.id} height={70} owned={n > 0} />
+                </span>
                 {n > 1 && <span class="cork-count">×{n}</span>}
               </button>
             );
