@@ -37,11 +37,12 @@ describe('verdict', () => {
 });
 
 describe('barème', () => {
-  it('1 500 au maximum, dégressif, 400 pour l’artiste', () => {
-    expect(newsScore('song', 0)).toBe(NEWS_MAX);
-    expect(newsScore('song', 15_000)).toBe(1250);
-    expect(newsScore('song', 60_000)).toBe(1000);
-    expect(newsScore('artist', 1000)).toBe(400);
+  it('5 000 au maximum, dégressif, 1 500 pour l’artiste', () => {
+    expect(NEWS_MAX).toBe(5000);
+    expect(newsScore('song', 0)).toBe(5000);
+    expect(newsScore('song', 15_000)).toBe(4250);
+    expect(newsScore('song', 60_000)).toBe(3500);
+    expect(newsScore('artist', 1000)).toBe(1500);
     expect(newsScore('none', 0)).toBe(0);
   });
   it('toujours entre deux manches', () => {

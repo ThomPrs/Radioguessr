@@ -113,30 +113,6 @@ export function staticBurst(duration = 0.4, volume = 0.15): void {
   src.stop(c.currentTime + duration + 0.1);
 }
 
-/** Sirène d'alerte (≈ 1 s) : deux tons qui montent et descendent. */
-export function siren(duration = 1): void {
-  const a = audio();
-  if (!a) return;
-  const { ctx: c, out } = a;
-  const t = c.currentTime;
-  const o = c.createOscillator();
-  o.type = 'sawtooth';
-  const lfo = c.createOscillator();
-  lfo.frequency.value = 3; // va-et-vient du hululement
-  const depth = c.createGain();
-  depth.gain.value = 220;
-  o.frequency.value = 760;
-  lfo.connect(depth).connect(o.frequency);
-  const lp = c.createBiquadFilter();
-  lp.type = 'lowpass';
-  lp.frequency.value = 2200;
-  o.connect(lp).connect(envGain(c, 0.16, 0.05, duration, t)).connect(out);
-  o.start(t);
-  lfo.start(t);
-  o.stop(t + duration + 0.1);
-  lfo.stop(t + duration + 0.1);
-}
-
 /** « Boum » de rotative : le journal qui s'écrase sur l'écran. */
 export function pressThump(): void {
   const a = audio();

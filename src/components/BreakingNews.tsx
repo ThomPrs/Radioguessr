@@ -1,12 +1,11 @@
-// Breaking News en plein écran : coupure des programmes (grésillement, image qui saute), alerte
-// rouge et sirène, journal « ÉDITION SPÉCIALE » qui arrive en tournoyant, compte à rebours 3-2-1,
-// puis l'extrait. Le journal reste à l'écran et porte l'interface (recherche, révélation).
+// Breaking News en plein écran : coupure des programmes (grésillement, image qui saute), puis
+// journal « ÉDITION SPÉCIALE » qui arrive en tournoyant, compte à rebours 3-2-1, puis l'extrait. Le journal reste à l'écran et porte l'interface (recherche, révélation).
 // Le même composant sert au solo et au multijoueur.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { NewsAnswer, NewsVerdict, TrackInfo } from '../../shared/blindtest';
 import { NEWS_INTRO_MS, NEWS_LISTEN_MS } from '../../shared/blindtest';
-import { clickSound, newsJingle, pressThump, siren, stampSound, staticBurst } from '../audio/sfx';
+import { clickSound, newsJingle, pressThump, stampSound, staticBurst } from '../audio/sfx';
 import { formatInt } from '../format';
 import { t } from '../i18n/fr';
 import { getNewsAudio, musicApi } from '../music/client';
@@ -41,15 +40,14 @@ interface Props {
 }
 
 /** Étapes du flash, en ms depuis son début. */
-type Step = 'cut' | 'alert' | 'paper' | 'count3' | 'count2' | 'count1' | 'go';
+type Step = 'cut' | 'paper' | 'count3' | 'count2' | 'count1' | 'go';
 const TIMELINE: [Step, number][] = [
   ['cut', 0],
-  ['alert', 700],
-  ['paper', 1600],
-  ['count3', 3400],
-  ['count2', 4400],
-  ['count1', 5400],
-  ['go', 6400],
+  ['paper', 1200],
+  ['count3', 3000],
+  ['count2', 4000],
+  ['count1', 5000],
+  ['go', 6000],
 ];
 
 function stepAt(elapsed: number): Step {
@@ -99,8 +97,7 @@ export function BreakingNews(p: Props) {
     const first = lastStep.current === null;
     lastStep.current = step;
     if (first && step !== 'cut') return;
-    if (step === 'cut') staticBurst(0.7, 0.5);
-    else if (step === 'alert') siren(0.9);
+    if (step === 'cut') staticBurst(1.2, 0.5);
     else if (step === 'paper') {
       newsJingle();
       setTimeout(pressThump, 1500);
@@ -141,18 +138,13 @@ export function BreakingNews(p: Props) {
   const left = Math.max(0, p.deadline - now);
   const locked = p.myEntry != null || chosen != null || p.pendingLabel != null;
   const lockedLabel = p.myEntry?.guessLabel ?? p.pendingLabel ?? chosen;
-  const paperIn = step !== 'cut' && step !== 'alert';
+  const paperIn = step !== 'cut';
   const today = new Date(now).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
     <div class={`news-takeover step-${step} phase-${p.phase}`} role="dialog" aria-modal="true" aria-label={t.news.option}>
       {/* Coupure : neige télé, bandes, décalage de couleurs */}
       <div class="news-static" aria-hidden="true" />
-      {/* Alerte : flash rouge et gyrophare */}
-      <div class="news-alert" aria-hidden="true">
-        <div class="news-beacon" />
-        <p class="news-alert-text">{t.news.cut}</p>
-      </div>
       {/* Bandeau qui défile en continu */}
       <div class="news-banner" aria-hidden="true">
         <span class="news-onair">{t.news.onAir}</span>

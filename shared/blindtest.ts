@@ -14,12 +14,12 @@ export interface TrackInfo {
 
 export type NewsVerdict = 'song' | 'artist' | 'none';
 
-export const NEWS_INTRO_MS = 7_000; // flash spécial : coupure, alerte, journal, compte à rebours
+export const NEWS_INTRO_MS = 6_500; // flash spécial : grésillement, journal, compte à rebours
 export const NEWS_LISTEN_MS = 30_000; // durée d'un extrait
 export const NEWS_REVEAL_MS = 15_000; // révélation avant reprise automatique
-export const NEWS_SONG_BASE = 1_000;
-export const NEWS_SPEED_BONUS = 500;
-export const NEWS_ARTIST_ONLY = 400;
+export const NEWS_SONG_BASE = 3_500;
+export const NEWS_SPEED_BONUS = 1_500;
+export const NEWS_ARTIST_ONLY = 1_500;
 export const NEWS_MAX = NEWS_SONG_BASE + NEWS_SPEED_BONUS;
 
 function stripAccents(s: string): string {
@@ -56,7 +56,7 @@ export function judgeGuess(answer: TrackInfo, guess: TrackInfo | null): NewsVerd
   return sameArtist ? 'artist' : 'none';
 }
 
-/** Points : chanson = 1 000 + rapidité (500 → 0 sur les 30 s) ; artiste seul = 400 ; sinon 0. Max 1 500. */
+/** Points : chanson = 3 500 + rapidité (1 500 → 0 sur les 30 s) ; artiste seul = 1 500 ; sinon 0. Max 5 000. */
 export function newsScore(verdict: NewsVerdict, elapsedMs: number): number {
   if (verdict === 'artist') return NEWS_ARTIST_ONLY;
   if (verdict !== 'song') return 0;

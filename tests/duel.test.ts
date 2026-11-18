@@ -285,15 +285,15 @@ describe('Breaking News', () => {
     expect(b.view.news?.phase).toBe('reveal');
     expect(b.view.news!.reveal!.answer?.title).toBe('Alors on danse (Radio Edit)');
     const entries = b.view.news!.reveal!.entries;
-    expect(entries[alice.playerId!]).toMatchObject({ verdict: 'song', score: 1450 });
-    expect(entries[bob.playerId!]).toMatchObject({ verdict: 'artist', score: 400, guessLabel: 'Papaoutai — Stromae' });
+    expect(entries[alice.playerId!]).toMatchObject({ verdict: 'song', score: 4850 }); // 3 500 + 1 500 × 0,9
+    expect(entries[bob.playerId!]).toMatchObject({ verdict: 'artist', score: 1500, guessLabel: 'Papaoutai — Stromae' });
     const totalAlice = b.view.players.find((p) => p.name === 'Alice')!.total;
 
     await act(code, alice, { action: 'news-ready' }, listenAt + 7000);
     const next = await act(code, bob, { action: 'news-ready' }, listenAt + 7000);
     expect(next.view.status).toBe('playing');
     expect(next.view.round).toMatchObject({ index: 1, phase: 'listening' });
-    expect(next.view.newsResult?.entries[alice.playerId!]?.score).toBe(1450);
+    expect(next.view.newsResult?.entries[alice.playerId!]?.score).toBe(4850);
     expect(next.view.players.find((p) => p.name === 'Alice')!.total).toBe(totalAlice); // points conservés
   });
 

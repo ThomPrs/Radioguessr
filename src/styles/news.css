@@ -23,7 +23,7 @@
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 .step-cut .news-static { opacity: 1; animation: static-jitter 0.12s steps(3) infinite; }
-.step-cut { animation: screen-shake 0.35s steps(4) 2; }
+.step-cut { animation: screen-shake 0.4s steps(4) 3; }
 .step-cut::after {
   content: '';
   position: absolute;
@@ -41,31 +41,6 @@
   75% { transform: translate(-6px, 10px) skewX(-2deg); }
 }
 @keyframes rgb-split { 50% { transform: translateX(8px); } }
-
-/* Alerte : flash rouge plein écran et gyrophare */
-.news-alert { position: absolute; inset: 0; display: none; place-items: center; pointer-events: none; }
-.step-alert .news-alert { display: grid; animation: red-flash 0.3s steps(2) infinite; }
-@keyframes red-flash { 0% { background: rgb(217 72 59 / 0.85); } 100% { background: rgb(120 20 14 / 0.6); } }
-.news-beacon {
-  position: absolute;
-  width: 160vmax;
-  height: 160vmax;
-  background: conic-gradient(from 0deg, rgb(255 230 200 / 0.45) 0 18deg, transparent 18deg 180deg, rgb(255 230 200 / 0.45) 180deg 198deg, transparent 198deg);
-  animation: beacon 0.6s linear infinite;
-}
-@keyframes beacon { to { transform: rotate(360deg); } }
-.news-alert-text {
-  position: relative;
-  margin: 0;
-  font-family: var(--font-title);
-  font-size: clamp(2rem, 7vw, 5rem);
-  color: #fff;
-  letter-spacing: 0.06em;
-  text-align: center;
-  text-shadow: 4px 4px 0 #1d1b19;
-  animation: alert-pop 0.3s steps(2) infinite;
-}
-@keyframes alert-pop { 50% { transform: scale(1.06); } }
 
 /* Bandeau qui défile, en haut */
 .news-banner { position: relative; z-index: 3; align-self: stretch; display: flex; background: var(--stamp-red); color: #fff; flex: none; box-shadow: 0 4px 0 #7a2a22; }
