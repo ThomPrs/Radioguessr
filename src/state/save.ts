@@ -140,6 +140,11 @@ export function recordGame(rounds: readonly Round[]): void {
   };
 }
 
+export function recordDuel(result: 'won' | 'lost' | 'draw'): void {
+  const s = save.value.stats;
+  save.value = { ...save.value, stats: { ...s, duels: { ...s.duels, [result]: s.duels[result] + 1 } } };
+}
+
 export function updatePrefs(patch: Partial<Prefs>): void {
   save.value = { ...save.value, prefs: { ...save.value.prefs, ...patch } };
 }

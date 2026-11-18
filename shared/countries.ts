@@ -1,4 +1,4 @@
-import type { Continent } from './types';
+import type { Continent } from './types.js';
 
 // Pays (ISO alpha-2) par continent. Source : découpage usuel ONU / Natural Earth.
 const BY_CONTINENT: Record<Continent, string> = {

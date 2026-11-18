@@ -76,6 +76,7 @@ export class StationPool {
         this.triedStreams.add(station.streamUrl);
         const result = await player.tune(station.streamUrl);
         if (result === 'cancelled') throw new DOMException('Syntonisation annulée', 'AbortError');
+        if (result === 'blocked') throw new Error('blocked');
         if (result === 'playing') {
           this.usedCountries.add(station.countryCode);
           this.continentCounts[station.continent] = (this.continentCounts[station.continent] ?? 0) + 1;

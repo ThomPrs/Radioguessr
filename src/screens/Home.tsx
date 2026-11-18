@@ -1,6 +1,6 @@
 // Accueil : le bureau du DXeur.
 
-import { showAlbum, showSettings, startWorldGame } from '../app';
+import { openDuelLobby, showAlbum, showSettings, startWorldGame } from '../app';
 import { clickSound, unlockAudio } from '../audio/sfx';
 import { t } from '../i18n/fr';
 import { save } from '../state/save';
@@ -31,9 +31,16 @@ export function Home() {
           <span class="home-card-desc">{t.home.worldDesc}</span>
           <span class="home-airmail" aria-hidden="true" />
         </button>
-        <button class="home-card" disabled>
+        <button
+          class="home-card"
+          onClick={() => {
+            unlockAudio();
+            clickSound();
+            openDuelLobby();
+          }}
+        >
           <span class="home-card-title">{t.home.duel}</span>
-          <span class="home-card-desc">({t.home.soon})</span>
+          <span class="home-card-desc">{t.home.duelDesc}</span>
         </button>
         <button
           class="home-card"

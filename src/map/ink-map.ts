@@ -32,6 +32,20 @@ const pinIcon = L.divIcon({
   iconAnchor: [16, 46],
 });
 
+function pinIconColored(color: string): L.DivIcon {
+  return L.divIcon({
+    className: 'ink-pin',
+    html: `<svg viewBox="0 0 32 48" width="32" height="48" aria-hidden="true">
+      <line x1="16" y1="20" x2="16" y2="46" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="16" cy="13" r="10" fill="${color}" stroke="${INK}" stroke-width="1.5"/>
+      <circle cx="12.5" cy="9.5" r="3" fill="#fff" opacity="0.45"/>
+    </svg>`,
+    iconSize: [32, 48],
+    iconAnchor: [16, 46],
+  });
+}
+const opponentPinIcon = pinIconColored(POST_BLUE);
+
 const stationIcon = L.divIcon({
   className: 'ink-station',
   html: `<svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
@@ -162,6 +176,39 @@ export class InkMap {
     this.map.flyToBounds(bounds.pad(0.35), { maxZoom: 6, duration: 1 });
   }
 
+  /** Pose la punaise sans clic (reconnexion en cours de manche). */
+  setPin(pos: LatLon | null): void {
+    if (!pos) {
+      this.pin?.remove();
+      this.pin = null;
+      return;
+    }
+    if (this.pin) this.pin.setLatLng([pos.lat, pos.lon]);
+    else this.pin = L.marker([pos.lat, pos.lon], { icon: pinIcon, draggable: this.pinnable, keyboard: false }).addTo(this.map);
+  }
+
+  /** Révélation en duel : la station, ma punaise (rouge) et celle de l'adversaire (bleue). */
+  revealDuel(station: LatLon, mine: LatLon | null, theirs: LatLon | null): void {
+    this.setPinnable(false);
+    this.overlay.clearLayers();
+    this.setPin(mine);
+    L.marker([station.lat, station.lon], { icon: stationIcon, interactive: false }).addTo(this.overlay);
+    const points: L.LatLngExpression[] = [[station.lat, station.lon]];
+    for (const [pos, color] of [
+      [mine, STAMP_RED],
+      [theirs, POST_BLUE],
+    ] as const) {
+      if (!pos) continue;
+      points.push([pos.lat, pos.lon]);
+      for (const seg of greatCircleSegments(pos, station)) {
+        L.polyline(seg, { color, weight: 2.5, dashArray: '6 6', interactive: false }).addTo(this.overlay);
+      }
+    }
+    if (theirs) L.marker([theirs.lat, theirs.lon], { icon: opponentPinIcon, interactive: false }).addTo(this.overlay);
+    if (points.length > 1) this.map.flyToBounds(L.latLngBounds(points).pad(0.35), { maxZoom: 6, duration: 1 });
+    else this.map.flyTo([station.lat, station.lon], 4, { duration: 1 });
+  }
+
   /** Toutes les manches d'une partie sur une seule carte. */
   showSummary(items: readonly SummaryItem[]): void {
     this.setPinnable(false);
@@ -185,7 +232,10 @@ export class InkMap {
     this.overlay.clearLayers();
     this.pin?.remove();
     this.pin = null;
-    this.map.flyToBounds([[-55, -170], [75, 175]], { duration: 0.8 });
+    // Sans animation : Leaflet ignore les clics pendant un vol de caméra, et le joueur
+    // doit pouvoir planter sa punaise dès le début de la manche.
+    this.map.stop();
+    this.map.fitBounds([[-55, -170], [75, 175]], { animate: false });
   }
 
   invalidateSize(): void {

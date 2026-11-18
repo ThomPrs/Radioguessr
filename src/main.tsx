@@ -5,6 +5,7 @@ import { installPrefs } from './state/prefs';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/qsl.css';
+import './styles/duel.css';
 
 document.title = t.app.tabTitle;
 

@@ -1,6 +1,6 @@
 // Types partagés entre le front (src/) et les fonctions serverless (api/).
 
-import type { QslCard } from './qsl';
+import type { QslCard } from './qsl.js';
 
 export type Continent = 'AF' | 'AN' | 'AS' | 'EU' | 'NA' | 'OC' | 'SA';
 

@@ -1,10 +1,10 @@
 // Génération des cartes QSL (pure, partagée front / serveur).
 
-import { countryNameFr } from './countries';
-import { countryLanguage } from './language';
-import { hashString, mulberry32 } from './rng';
-import { rarityFor, type Rarity } from './scoring';
-import type { Continent, Station } from './types';
+import { countryNameFr } from './countries.js';
+import { countryLanguage } from './language.js';
+import { hashString, mulberry32 } from './rng.js';
+import { rarityFor, type Rarity } from './scoring.js';
+import type { Continent, Station } from './types.js';
 
 export interface QslCard {
   countryCode: string; // clé de l'album : une carte par pays

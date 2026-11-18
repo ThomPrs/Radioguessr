@@ -1,17 +1,39 @@
 // Racine de l'application : navigation entre écrans.
 
 import { signal } from '@preact/signals';
+import { DuelSession } from './duel/session';
+import { tabIdentity, type Identity } from './duel/client';
 import { SoloGame } from './game/solo';
 import { t } from './i18n/fr';
 import { Album } from './screens/Album';
+import { DuelLobby } from './screens/DuelLobby';
+import { DuelRoom } from './screens/DuelRoom';
 import { GameScreen } from './screens/GameScreen';
 import { Home } from './screens/Home';
 import { Recap } from './screens/Recap';
 import { Settings } from './screens/Settings';
 
-type Screen = { name: 'home' } | { name: 'album' } | { name: 'settings' } | { name: 'game'; game: SoloGame } | { name: 'recap'; game: SoloGame };
+type Screen =
+  | { name: 'home' }
+  | { name: 'album' }
+  | { name: 'settings' }
+  | { name: 'duel-lobby'; code: string }
+  | { name: 'duel-room'; session: DuelSession } | { name: 'game'; game: SoloGame } | { name: 'recap'; game: SoloGame };
 
-const screen = signal<Screen>({ name: 'home' });
+/** Lien d'invitation « ?duel=CODE » : on ouvre directement l'entrée du duel avec le code. */
+function initialScreen(): Screen {
+  const code = new URLSearchParams(location.search).get('duel');
+  if (code) {
+    history.replaceState(null, '', location.pathname);
+    return { name: 'duel-lobby', code };
+  }
+  // Page rechargée en plein duel : on retourne directement dans le salon.
+  const id = tabIdentity();
+  if (id) return { name: 'duel-room', session: new DuelSession(id) };
+  return { name: 'home' };
+}
+
+const screen = signal<Screen>(initialScreen());
 
 export function startWorldGame(): void {
   const current = screen.value;
@@ -38,6 +60,16 @@ export function showSettings(): void {
   screen.value = { name: 'settings' };
 }
 
+export function openDuelLobby(): void {
+  goHome();
+  screen.value = { name: 'duel-lobby', code: '' };
+}
+
+export function openDuelRoom(id: Identity): void {
+  goHome();
+  screen.value = { name: 'duel-room', session: new DuelSession(id) };
+}
+
 export function showRecap(game: SoloGame): void {
   document.title = t.app.tabTitle;
   screen.value = { name: 'recap', game };
@@ -56,5 +88,9 @@ export function App() {
       return <Album />;
     case 'settings':
       return <Settings />;
+    case 'duel-lobby':
+      return <DuelLobby initialCode={s.code} />;
+    case 'duel-room':
+      return <DuelRoom key={s.session.id.code} session={s.session} />;
   }
 }

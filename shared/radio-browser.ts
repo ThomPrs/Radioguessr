@@ -1,9 +1,9 @@
 // Client Radio Browser (radio-browser.info) utilisable dans le navigateur et dans /api.
 
-import { continentOf } from './countries';
-import { parseLanguage } from './language';
-import { shuffle, weightedIndex, type Rng } from './rng';
-import type { Codec, Continent, Station } from './types';
+import { continentOf } from './countries.js';
+import { parseLanguage } from './language.js';
+import { shuffle, weightedIndex, type Rng } from './rng.js';
+import type { Codec, Continent, Station } from './types.js';
 
 const FALLBACK_MIRRORS = [
   'de1.api.radio-browser.info',

@@ -1,8 +1,8 @@
 // Calcul des indices d'une station : langue, continent, fuseau horaire.
 
-import { countryLanguage, languageNameFr } from './language';
-import { haversineKm } from './scoring';
-import type { Continent, Station } from './types';
+import { countryLanguage, languageNameFr } from './language.js';
+import { haversineKm } from './scoring.js';
+import type { Continent, Station } from './types.js';
 
 export const CONTINENT_FR: Record<Continent, string> = {
   AF: 'Afrique',

@@ -11,7 +11,8 @@ export const radioPaused = signal(false);
 
 export const TUNE_TIMEOUT_MS = 8000;
 
-export type TuneResult = 'playing' | 'failed' | 'cancelled';
+/** 'blocked' : le navigateur refuse la lecture sans clic de l'utilisateur (ce n'est pas la faute du flux). */
+export type TuneResult = 'playing' | 'failed' | 'blocked' | 'cancelled';
 
 export class RadioPlayer {
   private readonly audio: HTMLAudioElement;
@@ -89,7 +90,7 @@ export class RadioPlayer {
         clearInterval(watchdog);
         audio.removeEventListener('playing', onPlaying);
         audio.removeEventListener('error', onError);
-        if (result === 'failed' && this.attempt === id) this.reset();
+        if ((result === 'failed' || result === 'blocked') && this.attempt === id) this.reset();
         resolve(result);
       };
       const onPlaying = () => {
@@ -108,7 +109,7 @@ export class RadioPlayer {
       audio.load();
       audio.play().catch((err: unknown) => {
         // NotAllowedError = autoplay bloqué (pas de geste utilisateur) : ce n'est pas la faute du flux.
-        if (err instanceof DOMException && err.name === 'NotAllowedError') finish('failed');
+        if (err instanceof DOMException && err.name === 'NotAllowedError') finish('blocked');
         // AbortError = interrompu par un nouveau src : géré par le watchdog.
       });
     });

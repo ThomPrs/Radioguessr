@@ -146,6 +146,10 @@ for (const [name, data] of Object.entries(outputs)) {
   console.log(`✓ public/data/${name}  ${(json.length / 1024).toFixed(0)} ko`);
 }
 
+const zonesTs = `// Généré par scripts/build-data.ts — ne pas modifier.\nimport type { ZoneRow } from './hints.js';\n\nexport const ZONES: ZoneRow[] = ${JSON.stringify(outputs['timezones.json'])};\n`;
+await writeFile(join(ROOT, 'shared', 'timezones-data.ts'), zonesTs);
+console.log('✓ shared/timezones-data.ts');
+
 const album = JSON.stringify(await buildAlbumCountries());
 await writeFile(join(ROOT, 'shared', 'album-countries.json'), album + '\n');
 console.log(`✓ shared/album-countries.json  ${JSON.parse(album).length} pays`);

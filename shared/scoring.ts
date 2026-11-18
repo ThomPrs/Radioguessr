@@ -1,6 +1,6 @@
 // Distance, score, rareté. Partagé front / serveur (le duel calcule les scores côté serveur).
 
-import type { HintKind } from './types';
+import type { HintKind } from './types.js';
 
 export interface LatLon {
   lat: number;
