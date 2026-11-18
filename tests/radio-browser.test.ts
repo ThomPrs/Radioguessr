@@ -13,6 +13,7 @@ const base: RawStation = {
   country: 'Chile',
   state: 'Valparaíso',
   language: 'español chile,english',
+  languagecodes: '',
   tags: '',
   geo_lat: -33.0,
   geo_long: -71.6,
@@ -21,7 +22,7 @@ const base: RawStation = {
 describe('normalizeStation', () => {
   it('garde une station valide', () => {
     const s = normalizeStation(base);
-    expect(s).toMatchObject({ countryCode: 'CL', continent: 'SA', language: 'español chile', codec: 'MP3' });
+    expect(s).toMatchObject({ countryCode: 'CL', continent: 'SA', languageCode: 'es', codec: 'MP3' });
   });
   it.each([
     ['http', { url_resolved: 'http://example.cl/stream' }],

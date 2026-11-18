@@ -19,3 +19,15 @@ for (const [cont, list] of Object.entries(BY_CONTINENT) as [Continent, string][]
 export function continentOf(countryCode: string): Continent | undefined {
   return CONTINENT_OF[countryCode.toUpperCase()];
 }
+
+let regionNames: Intl.DisplayNames | null = null;
+
+/** Nom français d'un pays (« Chili ») depuis son code ISO. */
+export function countryNameFr(countryCode: string): string {
+  regionNames ??= new Intl.DisplayNames(['fr'], { type: 'region', fallback: 'code' });
+  try {
+    return regionNames.of(countryCode.toUpperCase()) ?? countryCode;
+  } catch {
+    return countryCode;
+  }
+}

@@ -43,6 +43,24 @@ const stationIcon = L.divIcon({
   iconAnchor: [20, 36],
 });
 
+function numberedPinIcon(n: number): L.DivIcon {
+  return L.divIcon({
+    className: 'ink-pin',
+    html: `<svg viewBox="0 0 32 48" width="28" height="42" aria-hidden="true">
+      <line x1="16" y1="20" x2="16" y2="46" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="16" cy="13" r="11" fill="${STAMP_RED}" stroke="${INK}" stroke-width="1.5"/>
+      <text x="16" y="18" text-anchor="middle" font-family="Archivo Black, sans-serif" font-size="13" fill="#fff">${n}</text>
+    </svg>`,
+    iconSize: [28, 42],
+    iconAnchor: [14, 40],
+  });
+}
+
+export interface SummaryItem {
+  station: LatLon;
+  guess: LatLon | null;
+}
+
 export interface InkMapOptions {
   onPin?: (pos: LatLon) => void;
 }
@@ -142,6 +160,24 @@ export class InkMap {
       [station.lat, station.lon],
     ]);
     this.map.flyToBounds(bounds.pad(0.35), { maxZoom: 6, duration: 1 });
+  }
+
+  /** Toutes les manches d'une partie sur une seule carte. */
+  showSummary(items: readonly SummaryItem[]): void {
+    this.setPinnable(false);
+    this.overlay.clearLayers();
+    const points: L.LatLngExpression[] = [];
+    items.forEach((item, i) => {
+      L.marker([item.station.lat, item.station.lon], { icon: stationIcon, interactive: false }).addTo(this.overlay);
+      points.push([item.station.lat, item.station.lon]);
+      if (!item.guess) return;
+      points.push([item.guess.lat, item.guess.lon]);
+      for (const seg of greatCircleSegments(item.guess, item.station)) {
+        L.polyline(seg, { color: STAMP_RED, weight: 2, dashArray: '5 5', interactive: false }).addTo(this.overlay);
+      }
+      L.marker([item.guess.lat, item.guess.lon], { icon: numberedPinIcon(i + 1), interactive: false }).addTo(this.overlay);
+    });
+    if (points.length > 0) this.map.fitBounds(L.latLngBounds(points).pad(0.2), { maxZoom: 5 });
   }
 
   /** Remet la carte à zéro pour une nouvelle manche. */

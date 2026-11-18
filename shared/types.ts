@@ -15,7 +15,7 @@ export interface Station {
   country: string;
   continent: Continent;
   state?: string;
-  language?: string;
+  languageCode?: string; // ISO 639 (Radio Browser), sans repli pays
   frequency?: string;
 }
 

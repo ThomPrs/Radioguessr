@@ -6,7 +6,7 @@ import { InkMap } from '../map/ink-map';
 
 interface Props {
   onReady: (map: InkMap) => void;
-  onPin: (pos: LatLon) => void;
+  onPin?: (pos: LatLon) => void;
 }
 
 export function MapView({ onReady, onPin }: Props) {
@@ -15,7 +15,7 @@ export function MapView({ onReady, onPin }: Props) {
   onPinRef.current = onPin;
 
   useEffect(() => {
-    const map = new InkMap(el.current!, { onPin: (p) => onPinRef.current(p) });
+    const map = new InkMap(el.current!, { onPin: (p) => onPinRef.current?.(p) });
     onReady(map);
     const ro = new ResizeObserver(() => map.invalidateSize());
     ro.observe(el.current!);

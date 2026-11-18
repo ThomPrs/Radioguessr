@@ -1,6 +1,7 @@
 // Client Radio Browser (radio-browser.info) utilisable dans le navigateur et dans /api.
 
 import { continentOf } from './countries';
+import { parseLanguage } from './language';
 import { shuffle, weightedIndex, type Rng } from './rng';
 import type { Codec, Continent, Station } from './types';
 
@@ -25,6 +26,7 @@ export interface RawStation {
   country: string;
   state: string | null;
   language: string | null;
+  languagecodes: string | null;
   tags: string | null;
   geo_lat: number | null;
   geo_long: number | null;
@@ -118,11 +120,6 @@ export function extractFrequency(...texts: (string | null | undefined)[]): strin
   return undefined;
 }
 
-function cleanLanguage(raw: string | null): string | undefined {
-  const first = raw?.split(/[,;/]/)[0]?.trim();
-  return first ? first.toLowerCase() : undefined;
-}
-
 /** Renvoie une Station si la station brute est jouable et localisable, sinon null. */
 export function normalizeStation(raw: RawStation): Station | null {
   const codec = raw.codec?.toUpperCase() as Codec;
@@ -154,8 +151,8 @@ export function normalizeStation(raw: RawStation): Station | null {
   };
   const state = raw.state?.trim();
   if (state) station.state = state;
-  const language = cleanLanguage(raw.language);
-  if (language) station.language = language;
+  const languageCode = parseLanguage(raw.languagecodes, raw.language);
+  if (languageCode) station.languageCode = languageCode;
   const frequency = extractFrequency(raw.name, raw.tags);
   if (frequency) station.frequency = frequency;
   return station;
