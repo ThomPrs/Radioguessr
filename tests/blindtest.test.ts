@@ -51,3 +51,34 @@ describe('barème', () => {
     expect([...seen].sort()).toEqual([0, 1, 2, 3]);
   });
 });
+
+import { HITS } from '../shared/hits-data';
+import { setMusicProvider, pickTrack } from '../api/_lib/music';
+
+describe('mégatubes', () => {
+  it('liste fournie, sans doublon, moitié français', () => {
+    expect(HITS.length).toBeGreaterThanOrEqual(180);
+    expect(new Set(HITS.map((h) => h.id)).size).toBe(HITS.length);
+    const fr = HITS.filter((h) => h.fr).length / HITS.length;
+    expect(fr).toBeGreaterThan(0.4);
+    expect(fr).toBeLessThan(0.6);
+  });
+  it('versions d’origine uniquement', () => {
+    for (const h of HITS) expect(h.title, `${h.artist} — ${h.title}`).not.toMatch(/\b(live|remix|extended|karaok|rerecord)/i);
+  });
+  it('tirage équilibré, extrait vérifié', async () => {
+    const tracks = new Map(HITS.map((h) => [h.id, h]));
+    setMusicProvider({
+      track: async (id) => {
+        const h = tracks.get(id);
+        return h ? { id, title: h.title, titleShort: h.title, artist: h.artist, artistId: 1, cover: '', preview: 'https://p' } : null;
+      },
+      search: async () => [],
+    });
+    const rng = mulberry32(11);
+    let fr = 0;
+    for (let i = 0; i < 2000; i++) if (tracks.get(await pickTrack(rng))!.fr) fr++;
+    expect(fr / 2000).toBeGreaterThan(0.45);
+    expect(fr / 2000).toBeLessThan(0.55);
+  });
+});

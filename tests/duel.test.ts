@@ -243,7 +243,7 @@ describe('Breaking News', () => {
   beforeEach(() => {
     store = new MemoryStore();
     setStore(store);
-    setMusicProvider({ pool: async () => [100], track: async (id) => TRACKS[id] ?? null, search: async () => [] });
+    setMusicProvider({ pool: async () => [{ id: 100, fr: true }], track: async (id) => TRACKS[id] ?? null, search: async () => [] });
   });
 
   /** Salon à 2 avec l'option, Breaking News forcée après la manche 1 ; renvoie le début de la manche 1. */

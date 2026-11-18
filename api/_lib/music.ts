@@ -2,29 +2,26 @@
 // Deezer n'envoie pas d'en-têtes CORS : le navigateur passe par nos fonctions /api.
 
 import { judgeGuess, newsScore, type NewsVerdict, type TrackInfo } from '../../shared/blindtest.js';
+import { HITS } from '../../shared/hits-data.js';
 
 export interface TrackWithPreview extends TrackInfo {
   preview: string;
 }
 
+/** Morceau du réservoir : identifiant Deezer et langue (pour équilibrer français / international). */
+export interface PoolEntry {
+  id: number;
+  fr: boolean;
+}
+
 export interface MusicProvider {
-  /** Identifiants des morceaux populaires (avec extrait). */
-  pool(): Promise<number[]>;
+  /** Réservoir de morceaux ; par défaut, les mégatubes de shared/hits-data.ts. */
+  pool?(): Promise<PoolEntry[]>;
   track(id: number): Promise<TrackWithPreview | null>;
   search(q: string): Promise<TrackInfo[]>;
 }
 
 const API = 'https://api.deezer.com';
-/** Classement France (serveur à Paris), Top Worldwide, 80s / 90s / 00s Hits, variété française. */
-const POOL_SOURCES = [
-  '/chart/0/tracks?limit=100',
-  '/playlist/3155776842/tracks?limit=100',
-  '/playlist/867825522/tracks?limit=100',
-  '/playlist/878989033/tracks?limit=100',
-  '/playlist/248297032/tracks?limit=100',
-  '/playlist/1189520191/tracks?limit=100',
-];
-const POOL_TTL_MS = 3600_000;
 const SEARCH_TTL_MS = 10 * 60_000;
 
 interface RawTrack {
@@ -63,19 +60,7 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 class DeezerProvider implements MusicProvider {
-  private poolCache: { at: number; ids: number[] } | null = null;
   private searchCache = new Map<string, { at: number; tracks: TrackInfo[] }>();
-
-  async pool(): Promise<number[]> {
-    if (this.poolCache && Date.now() - this.poolCache.at < POOL_TTL_MS) return this.poolCache.ids;
-    const lists = await Promise.all(
-      POOL_SOURCES.map((p) => getJson<{ data: RawTrack[] }>(p).then((r) => r.data).catch(() => [] as RawTrack[])),
-    );
-    const ids = [...new Set(lists.flat().filter((t) => t.preview && t.readable !== false).map((t) => t.id))];
-    if (ids.length === 0) throw new Error('Aucun morceau disponible');
-    this.poolCache = { at: Date.now(), ids };
-    return ids;
-  }
 
   async track(id: number): Promise<TrackWithPreview | null> {
     try {
@@ -109,9 +94,24 @@ export function music(): MusicProvider {
   return provider;
 }
 
+/**
+ * Tire un mégatube : une chance sur deux d'être français. On vérifie que l'extrait est encore
+ * disponible chez Deezer (retrait, droits…) ; sinon on en tire un autre, jusqu'à 3 fois.
+ */
 export async function pickTrack(rng: () => number = Math.random): Promise<number> {
-  const ids = await provider.pool();
-  return ids[Math.floor(rng() * ids.length)]!;
+  const pool: PoolEntry[] = provider.pool ? await provider.pool() : HITS;
+  if (pool.length === 0) throw new Error('Aucun morceau disponible');
+  const fr = pool.filter((h) => h.fr);
+  const intl = pool.filter((h) => !h.fr);
+  const tried = new Set<number>();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const side = fr.length && intl.length ? (rng() < 0.5 ? fr : intl) : pool;
+    const candidates = side.filter((h) => !tried.has(h.id));
+    const pick = (candidates.length ? candidates : side)[Math.floor(rng() * (candidates.length || side.length))]!;
+    tried.add(pick.id);
+    if ((await provider.track(pick.id))?.preview) return pick.id;
+  }
+  throw new Error('Aucun extrait disponible');
 }
 
 export interface CheckResult {
