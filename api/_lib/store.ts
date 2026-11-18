@@ -99,10 +99,32 @@ let store: Store | null = null;
 
 export class StoreConfigError extends Error {}
 
+/**
+ * Trouve les accès Upstash quel que soit le préfixe choisi lors de la connexion dans Vercel
+ * (KV_REST_API_URL, STORAGE_KV_REST_API_URL, UPSTASH_REDIS_REST_URL…).
+ */
+export function findRedisEnv(env: Record<string, string | undefined> = process.env): { url: string; token: string; name: string } | null {
+  const pairs: [string, string][] = [
+    ['KV_REST_API_URL', 'KV_REST_API_TOKEN'],
+    ['REDIS_REST_URL', 'REDIS_REST_TOKEN'],
+  ];
+  for (const [urlSuffix, tokenSuffix] of pairs) {
+    for (const name of Object.keys(env).sort()) {
+      if (!name.endsWith(urlSuffix)) continue;
+      const prefix = name.slice(0, -urlSuffix.length);
+      const url = env[name];
+      const token = env[prefix + tokenSuffix];
+      if (url?.startsWith('https://') && token) return { url, token, name };
+    }
+  }
+  return null;
+}
+
 export function getStore(): Store {
   if (store) return store;
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+  const found = findRedisEnv();
+  const url = found?.url;
+  const token = found?.token;
   if (url && token) {
     store = new UpstashStore(new Redis({ url, token, automaticDeserialization: false }));
   } else if (process.env.VERCEL) {

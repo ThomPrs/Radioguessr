@@ -23,7 +23,8 @@ export function DuelLobby({ initialCode = '' }: { initialCode?: string }) {
 
   const fail = (err: unknown) => {
     const c = err instanceof ApiError ? err.code : 'network';
-    setError(t.duel.errors[c] ?? t.duel.errors.server!);
+    const detail = err instanceof ApiError && err.detail && c !== 'not-found' && c !== 'full' ? ` (${err.detail})` : '';
+    setError((t.duel.errors[c] ?? t.duel.errors.server!) + detail);
     setBusy(null);
   };
 

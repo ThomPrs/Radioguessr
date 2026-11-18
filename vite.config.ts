@@ -7,6 +7,7 @@ import preact from '@preact/preset-vite';
  */
 function devApi(): Plugin {
   const routes: [RegExp, string][] = [
+    [/^\/api\/health\/?$/, '/api/health.ts'],
     [/^\/api\/rooms\/?$/, '/api/rooms/index.ts'],
     [/^\/api\/rooms\/[^/]+\/?$/, '/api/rooms/[code].ts'],
   ];

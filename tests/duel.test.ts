@@ -148,3 +148,15 @@ describe('partie complète', () => {
     expect(v.opponent?.gone).toBe(true);
   });
 });
+
+import { findRedisEnv } from '../api/_lib/store';
+
+describe('variables Upstash', () => {
+  it('trouve les accès quel que soit le préfixe', () => {
+    expect(findRedisEnv({ KV_REST_API_URL: 'https://a.upstash.io', KV_REST_API_TOKEN: 't' })?.name).toBe('KV_REST_API_URL');
+    expect(findRedisEnv({ STORAGE_KV_REST_API_URL: 'https://b.upstash.io', STORAGE_KV_REST_API_TOKEN: 't' })?.url).toBe('https://b.upstash.io');
+    expect(findRedisEnv({ UPSTASH_REDIS_REST_URL: 'https://c.upstash.io', UPSTASH_REDIS_REST_TOKEN: 't' })?.url).toBe('https://c.upstash.io');
+    expect(findRedisEnv({ KV_REST_API_URL: 'https://a.upstash.io' })).toBeNull(); // jeton manquant
+    expect(findRedisEnv({ REDIS_URL: 'rediss://x' })).toBeNull(); // « Redis officiel » (TCP) : incompatible
+  });
+});

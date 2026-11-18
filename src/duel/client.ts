@@ -7,6 +7,8 @@ export class ApiError extends Error {
   constructor(
     readonly code: DuelErrorCode | 'network',
     readonly status: number,
+    /** Détail renvoyé par le serveur, affiché pour aider au diagnostic. */
+    readonly detail = '',
   ) {
     super(code);
   }
@@ -116,8 +118,13 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, 
   } catch {
     throw new ApiError('network', 0);
   }
-  const data = (await res.json().catch(() => ({}))) as T & { error?: DuelErrorCode };
-  if (!res.ok) throw new ApiError(data.error ?? 'server', res.status);
+  const data = (await res.json().catch(() => ({}))) as T & { error?: DuelErrorCode; message?: string };
+  if (!res.ok) {
+    // 404 sans réponse JSON : l'API n'existe pas sur ce déploiement (ancienne version en ligne ?)
+    const code: DuelErrorCode = data.error ?? 'server';
+    const detail = data.message ?? (data.error ? '' : `HTTP ${res.status}${res.status === 404 ? ' — API absente de ce déploiement' : ''}`);
+    throw new ApiError(code, res.status, detail);
+  }
   return data;
 }
 
