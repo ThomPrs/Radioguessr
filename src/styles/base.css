@@ -133,6 +133,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--stamp-red);
   height: 100dvh;
 }
 .game-panel { overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 6px 12px 2px; }
+/* Quand le panneau déborde, il défile : ses éléments ne doivent jamais être écrasés. */
+.game-panel > * { flex-shrink: 0; }
 .game-header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; color: var(--paper); }
 .game-total { flex: 1; text-shadow: 0 1px 2px rgb(0 0 0 / 0.5); }
 .game-total strong { font-family: var(--font-title); font-size: 1.15rem; }

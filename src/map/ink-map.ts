@@ -8,7 +8,7 @@ import { t } from '../i18n/fr';
 
 const INK = '#3a3632';
 const LAND = '#efe6d2';
-const POST_BLUE = '#2f5d8c';
+const POST_BLUE = '#2f5d8c'; // quadrillage
 const STAMP_RED = '#d9483b';
 
 let countriesPromise: Promise<FeatureCollection> | null = null;
@@ -44,7 +44,18 @@ function pinIconColored(color: string): L.DivIcon {
     iconAnchor: [16, 46],
   });
 }
-const opponentPinIcon = pinIconColored(POST_BLUE);
+const coloredPins = new Map<string, L.DivIcon>();
+function pinIconFor(color: string): L.DivIcon {
+  let icon = coloredPins.get(color);
+  if (!icon) coloredPins.set(color, (icon = pinIconColored(color)));
+  return icon;
+}
+
+export interface PlayerPin {
+  pos: LatLon | null;
+  color: string;
+  label: string;
+}
 
 const stationIcon = L.divIcon({
   className: 'ink-station',
@@ -187,25 +198,22 @@ export class InkMap {
     else this.pin = L.marker([pos.lat, pos.lon], { icon: pinIcon, draggable: this.pinnable, keyboard: false }).addTo(this.map);
   }
 
-  /** Révélation en duel : la station, ma punaise (rouge) et celle de l'adversaire (bleue). */
-  revealDuel(station: LatLon, mine: LatLon | null, theirs: LatLon | null): void {
+  /** Révélation multijoueur : la station, et pour chaque joueur sa punaise et son arc, dans sa couleur. */
+  revealMulti(station: LatLon, pins: readonly PlayerPin[]): void {
     this.setPinnable(false);
     this.overlay.clearLayers();
-    this.setPin(mine);
+    this.setPin(null); // la punaise « locale » est remplacée par celle, colorée, du joueur
     L.marker([station.lat, station.lon], { icon: stationIcon, interactive: false }).addTo(this.overlay);
     const points: L.LatLngExpression[] = [[station.lat, station.lon]];
-    for (const [pos, color] of [
-      [mine, STAMP_RED],
-      [theirs, POST_BLUE],
-    ] as const) {
+    for (const { pos, color, label } of pins) {
       if (!pos) continue;
       points.push([pos.lat, pos.lon]);
       for (const seg of greatCircleSegments(pos, station)) {
         L.polyline(seg, { color, weight: 2.5, dashArray: '6 6', interactive: false }).addTo(this.overlay);
       }
+      L.marker([pos.lat, pos.lon], { icon: pinIconFor(color), title: label, keyboard: false }).addTo(this.overlay);
     }
-    if (theirs) L.marker([theirs.lat, theirs.lon], { icon: opponentPinIcon, interactive: false }).addTo(this.overlay);
-    if (points.length > 1) this.map.flyToBounds(L.latLngBounds(points).pad(0.35), { maxZoom: 6, duration: 1 });
+    if (points.length > 1) this.map.flyToBounds(L.latLngBounds(points).pad(0.3), { maxZoom: 6, duration: 1 });
     else this.map.flyTo([station.lat, station.lon], 4, { duration: 1 });
   }
 

@@ -84,11 +84,14 @@ describe('UpstashStore (format de réponse réel)', () => {
     expect((await getRoom(host.code, hc, t0)).status).toBe('waiting');
     const guest = await joinRoom(host.code, 'Bob', { playerId: null, token: null }, t0 + 1000);
     const gc = { playerId: guest.playerId, token: guest.token };
-    const t = t0 + 1000 + COUNTDOWN_MS;
+    await act(host.code, gc, { action: 'chat', text: 'Bonjour' }, t0 + 1500);
+    await act(host.code, hc, { action: 'start' }, t0 + 2000);
+    const t = t0 + 2000 + COUNTDOWN_MS;
     expect((await getRoom(host.code, hc, t)).round?.phase).toBe('listening');
     await act(host.code, hc, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 1000);
     const r = await act(host.code, gc, { action: 'guess', round: 0, lat: 1, lon: 1 }, t + 2000);
     expect(r.view.round?.phase).toBe('revealed');
-    expect(r.view.totals.opponent).toBe(5000);
+    expect(r.view.players.find((p) => p.name === 'Alice')?.total).toBe(5000);
+    expect(r.view.chat.map((m) => m.text)).toContain('Bonjour');
   });
 });

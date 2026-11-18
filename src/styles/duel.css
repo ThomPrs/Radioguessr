@@ -100,3 +100,156 @@
   .duel-or { padding: 0; text-align: center; }
   .duel-layout .duel-timer, .duel-layout .opponent-chip { order: 2; }
 }
+
+/* ── Joueurs ───────────────────────────────────────────────────────────── */
+.players-sheet { padding: 8px 12px; }
+.player-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.player-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; border-bottom: 1px dotted rgb(58 54 50 / 0.3); font-size: 0.95rem; }
+.player-row:last-child { border-bottom: none; }
+.player-row.is-gone { opacity: 0.5; text-decoration: line-through; }
+.player-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--ink); flex: none; }
+.player-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-tag { font-style: normal; opacity: 0.65; font-size: 0.85em; }
+.player-host {
+  margin-left: 6px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--stamp-red);
+  border: 1.5px solid var(--stamp-red);
+  padding: 0 4px;
+  display: inline-block;
+  transform: rotate(-4deg);
+}
+.player-status { font-size: 0.8rem; font-style: italic; opacity: 0.8; white-space: nowrap; }
+.player-status.is-done { color: #4f7a4a; font-style: normal; opacity: 1; }
+.player-status.is-offline { color: #c9822b; }
+.player-status.is-gone { color: var(--stamp-red); }
+.player-total { font-family: var(--font-title); min-width: 3.5em; text-align: right; }
+
+/* ── Attente : feuille + télégrammes côte à côte ──────────────────────── */
+.waiting-layout { display: grid; grid-template-columns: minmax(0, 620px) minmax(280px, 380px); gap: 20px; justify-content: center; align-items: start; }
+.waiting-layout .chat-panel { height: min(560px, 80vh); }
+.waiting-subtitle { font-size: 1rem; align-self: stretch; text-align: left; margin: 14px 0 4px; border-bottom: 2px solid var(--post-blue); padding-bottom: 4px; }
+.duel-waiting .player-list { align-self: stretch; text-align: left; }
+
+/* ── Télégrammes (chat) ────────────────────────────────────────────────── */
+.chat-panel {
+  --line: 22px;
+  margin-top: auto; /* occupe l'espace libre en bas du panneau */
+  flex: 1 0 210px;
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  background-color: #fbf6ea;
+  background-image: var(--paper-grain);
+  box-shadow: 0 6px 14px rgb(0 0 0 / 0.35);
+  transform: rotate(-0.4deg);
+  position: relative;
+}
+.chat-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 6px;
+  background: var(--airmail);
+}
+.chat-panel.is-closed { flex: none; min-height: 0; }
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--stamp-red);
+  color: var(--ink);
+  text-align: left;
+}
+.chat-title {
+  font-family: var(--font-title);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--stamp-red);
+  border: 2px solid var(--stamp-red);
+  padding: 0 8px;
+  transform: rotate(-2deg);
+  filter: url(#ink-bleed);
+}
+.chat-unread { background: var(--stamp-red); color: var(--paper); border-radius: 10px; padding: 0 8px; font-size: 0.75rem; }
+.chat-chevron { margin-left: auto; opacity: 0.6; }
+.chat-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 4px 12px;
+  /* Lignes du papier alignées sur le texte */
+  line-height: var(--line);
+  background-image: repeating-linear-gradient(transparent 0 calc(var(--line) - 1px), rgb(47 93 140 / 0.2) calc(var(--line) - 1px) var(--line));
+  background-attachment: local;
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+}
+.chat-msg.is-system { font-style: italic; opacity: 0.7; }
+.chat-msg.is-mine .chat-text { color: var(--ink); }
+.chat-time { font-size: 0.75rem; opacity: 0.55; }
+.chat-author { font-family: var(--font-title); font-weight: 400; }
+.chat-author::after { content: ' :'; color: var(--ink); font-family: var(--font-type); }
+.chat-empty { font-style: italic; opacity: 0.6; }
+.chat-form { display: flex; gap: 8px; align-items: center; padding: 8px 12px 10px; border-top: 1px dashed rgb(58 54 50 / 0.4); }
+.chat-form input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-bottom: 2px dotted var(--ink);
+  padding: 4px 2px;
+}
+.chat-form input:focus { outline: none; border-bottom-style: solid; border-bottom-color: var(--post-blue); }
+.chat-send {
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  color: var(--stamp-red);
+  background: transparent;
+  border: 3px double var(--stamp-red);
+  padding: 4px 10px;
+  transform: rotate(-3deg);
+}
+.chat-send:not(:disabled):active { transform: rotate(0) translateY(1px); }
+.chat-error, .chat-count { margin: 0; padding: 0 12px 8px; font-size: 0.8rem; color: var(--stamp-red); }
+
+/* ── Classement final ──────────────────────────────────────────────────── */
+.ranking { list-style: none; margin: 8px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ranking-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-bottom: 1px dotted rgb(58 54 50 / 0.4); }
+.ranking-row.is-mine { background: rgb(217 72 59 / 0.08); }
+.ranking-rank {
+  font-family: var(--font-title);
+  min-width: 2.6em;
+  text-align: center;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  padding: 2px 0;
+  transform: rotate(-6deg);
+  font-size: 0.85rem;
+}
+.rank-1 .ranking-rank { color: #a8841a; border-style: double; border-width: 4px; background: #f3d778; }
+.rank-2 .ranking-rank { color: #6b7280; }
+.rank-3 .ranking-rank { color: #9a5b2c; }
+.ranking-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ranking-total { font-family: var(--font-title); font-size: 1.15rem; }
+.duel-layout .game-panel > .paper.recap-sheet { flex: none; }
+
+@media (max-width: 760px) {
+  .waiting-layout { grid-template-columns: 1fr; }
+  .waiting-layout .chat-panel { height: 380px; }
+  .duel-layout .players-sheet { order: 2; }
+  .duel-layout .chat-panel { order: 8; flex: none; height: 320px; }
+  .duel-layout .chat-panel.is-closed { height: auto; }
+}

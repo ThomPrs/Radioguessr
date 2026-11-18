@@ -1,4 +1,4 @@
-// Mode Duel : constantes et types échangés entre le serveur (/api) et le navigateur.
+// Mode Multijoueur : constantes et types échangés entre le serveur (/api) et le navigateur.
 
 import type { HintKind, Station } from './types.js';
 
@@ -8,16 +8,23 @@ export const ROOM_CODE_LENGTH = 5;
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const ROOM_TTL_SECONDS = 2 * 3600;
 
+export const MAX_PLAYERS = 8;
+export const MIN_PLAYERS_TO_START = 2;
+
 export const COUNTDOWN_MS = 4_000; // avant la première manche
 export const ROUND_TIME_MS = 90_000; // temps maximum d'écoute
 export const REVEAL_TIME_MS = 30_000; // révélation avant passage automatique
 export const CONNECTED_MS = 6_000; // au-delà sans polling : « déconnecté »
-export const ABANDON_MS = 120_000; // au-delà : adversaire parti
+export const ABANDON_MS = 120_000; // au-delà : joueur parti
 export const POLL_INTERVAL_MS = 1_000;
 export const MAX_NAME_LENGTH = 20;
 
-export type Seat = 'host' | 'guest';
-export const otherSeat = (s: Seat): Seat => (s === 'host' ? 'guest' : 'host');
+export const CHAT_MAX_LENGTH = 200;
+export const CHAT_KEEP = 40; // messages conservés par salon
+export const CHAT_MIN_INTERVAL_MS = 1_000; // anti-spam : un message par seconde et par joueur
+
+/** Une couleur d'encre par joueur, attribuée dans l'ordre d'arrivée. */
+export const PLAYER_COLORS = ['#d9483b', '#2f5d8c', '#4f7a4a', '#c9822b', '#8a5a9e', '#2b8a8a', '#7a4a2c', '#c2577a'] as const;
 
 export type RoomStatus = 'waiting' | 'countdown' | 'playing' | 'finished';
 
@@ -32,10 +39,27 @@ export interface DuelEntry {
 }
 
 export interface PlayerView {
+  id: string;
   name: string;
+  color: number; // indice dans PLAYER_COLORS
+  isHost: boolean;
   connected: boolean;
   /** Parti volontairement, ou silencieux depuis plus de 2 minutes. */
   gone: boolean;
+  total: number;
+  /** Manche en cours : rapport envoyé / prêt pour la suite. */
+  guessed: boolean;
+  ready: boolean;
+}
+
+export interface ChatMessage {
+  id: number;
+  pid: string | null; // null : message système
+  name: string;
+  color: number;
+  text: string;
+  at: number;
+  kind: 'msg' | 'system';
 }
 
 export interface RoundView {
@@ -49,7 +73,8 @@ export interface RoundView {
   /** Instant où la manche suivante démarrera d'office (pendant la révélation). */
   nextAt: number | null;
   you: { guessed: boolean; hints: HintKind[]; hintValues: Partial<Record<HintKind, string>>; ready: boolean; entry: DuelEntry | null };
-  opponent: { guessed: boolean; ready: boolean; entry: DuelEntry | null };
+  /** Rapports de tous les joueurs, révélés uniquement en phase « revealed ». */
+  entries: Record<string, DuelEntry | null> | null;
   /** Révélée uniquement en phase « revealed ». */
   station: Station | null;
 }
@@ -57,39 +82,40 @@ export interface RoundView {
 export interface HistoryItem {
   index: number;
   station: Station;
-  you: DuelEntry | null;
-  opponent: DuelEntry | null;
+  entries: Record<string, DuelEntry | null>;
 }
 
 export interface RoomView {
   code: string;
   status: RoomStatus;
   serverNow: number;
-  you: Seat;
-  me: PlayerView;
-  opponent: PlayerView | null;
+  youId: string;
+  hostId: string;
+  players: PlayerView[];
   startAt: number | null; // début de la première manche (compte à rebours)
   round: RoundView | null;
   history: HistoryItem[];
-  totals: { you: number; opponent: number };
+  /** Messages plus récents que l'identifiant demandé (?chat=). */
+  chat: ChatMessage[];
 }
 
 export interface JoinResponse {
   code: string;
   playerId: string;
   token: string;
-  seat: Seat;
 }
 
 export type DuelAction =
   | { action: 'join'; name: string }
+  | { action: 'start' }
   | { action: 'guess'; round: number; lat: number; lon: number }
   | { action: 'hint'; round: number; kind: HintKind }
   | { action: 'skip'; round: number; from: number }
   | { action: 'ready'; round: number }
+  | { action: 'chat'; text: string }
   | { action: 'leave' };
 
-export type DuelErrorCode = 'not-found' | 'full' | 'forbidden' | 'bad-request' | 'stations' | 'server';
+export type DuelErrorCode = 'not-found' | 'full' | 'started' | 'forbidden' | 'bad-request' | 'too-fast' | 'stations' | 'server';
 
 export function normalizeCode(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, ROOM_CODE_LENGTH);
@@ -102,4 +128,16 @@ export function isValidCode(code: string): boolean {
 export function cleanName(raw: unknown): string {
   const s = typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim() : '';
   return s.slice(0, MAX_NAME_LENGTH);
+}
+
+export function cleanChat(raw: unknown): string {
+  // Caractères de contrôle retirés, espaces regroupés, longueur bornée.
+  const s = typeof raw === 'string' ? raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim() : '';
+  return s.slice(0, CHAT_MAX_LENGTH);
+}
+
+/** Classement : rang de chaque joueur (ex æquo = même rang). */
+export function rankPlayers(players: readonly PlayerView[]): { player: PlayerView; rank: number }[] {
+  const sorted = [...players].sort((a, b) => b.total - a.total);
+  return sorted.map((player) => ({ player, rank: sorted.findIndex((p) => p.total === player.total) + 1 }));
 }

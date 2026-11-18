@@ -1,11 +1,11 @@
-// Session de duel côté navigateur : polling ~1 s, radio synchronisée sur le flux du salon,
-// signalement des flux muets, cartes QSL et statistiques en fin de partie.
+// Session multijoueur côté navigateur : polling ~1 s, radio synchronisée sur le flux du salon,
+// signalement des flux muets, chat, cartes QSL et statistiques en fin de partie.
 
 import { computed, signal } from '@preact/signals';
-import { POLL_INTERVAL_MS, type HistoryItem, type RoomView } from '../../shared/duel';
+import { CHAT_KEEP, POLL_INTERVAL_MS, rankPlayers, type ChatMessage, type HistoryItem, type RoomView } from '../../shared/duel';
 import { createQslCard, type CollectOutcome, type QslCard } from '../../shared/qsl';
 import type { HintKind } from '../../shared/types';
-import { startStatic, stopStatic } from '../audio/sfx';
+import { startStatic, stopStatic, typeClick } from '../audio/sfx';
 import { nearestCity, preloadPlaces } from '../game/places';
 import { getPlayer } from '../game/solo';
 import { collectCard, recordDuel } from '../state/save';
@@ -28,6 +28,10 @@ export class DuelSession {
   /** Punaise locale (avant envoi). */
   readonly pending = signal<{ lat: number; lon: number } | null>(null);
   readonly busy = signal(false);
+  /** Messages du salon (les plus anciens d'abord), fusionnés par identifiant. */
+  readonly chat = signal<ChatMessage[]>([]);
+  /** Erreur du dernier envoi de message (trop rapide…). */
+  readonly chatError = signal<string | null>(null);
 
   /** Décalage horloge serveur − horloge locale (ms). */
   private offset = 0;
@@ -35,6 +39,7 @@ export class DuelSession {
   private stopped = false;
   private tunedKey: string | null = null;
   private recorded = false;
+  private lastChatId = 0;
 
   readonly now = signal(Date.now());
   private ticker: ReturnType<typeof setInterval> | null = null;
@@ -61,7 +66,7 @@ export class DuelSession {
     if (this.stopped) return;
     const t0 = Date.now();
     try {
-      const v = await api.get(this.id);
+      const v = await api.get(this.id, this.lastChatId);
       this.offset = v.serverNow - (t0 + Date.now()) / 2;
       this.connection.value = 'ok';
       this.apply(v);
@@ -82,9 +87,19 @@ export class DuelSession {
     if (!this.stopped) this.timer = setTimeout(() => void this.poll(), POLL_INTERVAL_MS);
   }
 
+  private mergeChat(incoming: ChatMessage[]): void {
+    const fresh = incoming.filter((m) => m.id > this.lastChatId);
+    if (fresh.length === 0) return;
+    this.lastChatId = fresh[fresh.length - 1]!.id;
+    this.chat.value = [...this.chat.value, ...fresh].slice(-CHAT_KEEP);
+    // Petit cliquetis de télégraphe quand quelqu'un d'autre écrit.
+    if (fresh.some((m) => m.kind === 'msg' && m.pid !== this.id.playerId)) typeClick();
+  }
+
   private apply(v: RoomView): void {
     const prev = this.view.value;
     this.view.value = v;
+    this.mergeChat(v.chat);
     if (prev?.round?.index !== v.round?.index) this.pending.value = null;
 
     // Radio : on (re)syntonise quand la manche ou le flux de secours change.
@@ -105,8 +120,10 @@ export class DuelSession {
 
     if (v.status === 'finished' && !this.recorded) {
       this.recorded = true;
-      const { you, opponent } = v.totals;
-      recordDuel(you > opponent ? 'won' : you < opponent ? 'lost' : 'draw');
+      // Victoire : seul en tête ; égalité : premier ex æquo ; sinon défaite.
+      const ranking = rankPlayers(v.players);
+      const firsts = ranking.filter((r) => r.rank === 1).map((r) => r.player.id);
+      recordDuel(!firsts.includes(v.youId) ? 'lost' : firsts.length === 1 ? 'won' : 'draw');
     }
   }
 
@@ -146,8 +163,9 @@ export class DuelSession {
 
   /** Carte QSL de la manche, une seule fois. */
   private collect(h: HistoryItem): void {
-    if (this.cards.value[h.index] || h.you?.distanceKm == null) return;
-    const card = createQslCard({ station: h.station, distanceKm: h.you.distanceKm, city: nearestCity(h.station), source: 'duel' });
+    const mine = h.entries[this.id.playerId];
+    if (this.cards.value[h.index] || mine?.distanceKm == null) return;
+    const card = createQslCard({ station: h.station, distanceKm: mine.distanceKm, city: nearestCity(h.station), source: 'duel' });
     if (!card) return;
     this.cards.value = { ...this.cards.value, [h.index]: { card, outcome: collectCard(card) } };
   }
@@ -160,7 +178,7 @@ export class DuelSession {
   private async send(action: Parameters<typeof api.act>[1]): Promise<string | undefined> {
     this.busy.value = true;
     try {
-      const res = await api.act(this.id, action);
+      const res = await api.act(this.id, action, this.lastChatId);
       this.apply(res.view);
       return res.hint;
     } catch (err) {
@@ -186,6 +204,24 @@ export class DuelSession {
   async hint(kind: HintKind): Promise<void> {
     const r = this.view.value?.round;
     if (r) await this.send({ action: 'hint', round: r.index, kind });
+  }
+
+  /** Lancement de la partie (hôte uniquement). */
+  async startGame(): Promise<void> {
+    await this.send({ action: 'start' });
+  }
+
+  /** Envoie un message ; renvoie true si le serveur l'a accepté. */
+  async sendChat(text: string): Promise<boolean> {
+    this.chatError.value = null;
+    try {
+      const res = await api.act(this.id, { action: 'chat', text }, this.lastChatId);
+      this.apply(res.view);
+      return true;
+    } catch (err) {
+      this.chatError.value = err instanceof ApiError ? err.code : 'network';
+      return false;
+    }
   }
 
   async ready(): Promise<void> {

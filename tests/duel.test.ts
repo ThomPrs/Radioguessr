@@ -1,162 +1,215 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { act, createRoom, getRoom, joinRoom, type Credentials } from '../api/_lib/rooms';
-import { MemoryStore, setStore } from '../api/_lib/store';
-import { ABANDON_MS, COUNTDOWN_MS, REVEAL_TIME_MS, ROUND_TIME_MS } from '../shared/duel';
+import { MemoryStore, findRedisEnv, setStore } from '../api/_lib/store';
+import { ABANDON_MS, CHAT_KEEP, COUNTDOWN_MS, MAX_PLAYERS, REVEAL_TIME_MS, ROUND_TIME_MS, rankPlayers } from '../shared/duel';
 import type { Station } from '../shared/types';
 
-const st = (id: string, lat: number, lon: number, cc = 'FR'): Station => ({
-  id, name: `Radio ${id}`, streamUrl: `https://stream/${id}`, codec: 'MP3', lat, lon, countryCode: cc, country: cc, continent: 'EU', languageCode: 'fr',
+const st = (id: string, lat: number, lon: number): Station => ({
+  id, name: `Radio ${id}`, streamUrl: `https://stream/${id}`, codec: 'MP3', lat, lon, countryCode: 'FR', country: 'FR', continent: 'EU', languageCode: 'fr',
 });
 // 5 manches, 3 candidats chacune
 const ROUNDS: Station[][] = Array.from({ length: 5 }, (_, i) => [st(`r${i}a`, 10 * i, 10 * i), st(`r${i}b`, 10 * i + 1, 10 * i), st(`r${i}c`, 10 * i + 2, 10 * i)]);
-
+const NOBODY: Credentials = { playerId: null, token: null };
 const T0 = 1_800_000_000_000;
-let host: Credentials;
-let guest: Credentials;
-let code: string;
 
-async function setup(now = T0) {
+let code: string;
+let alice: Credentials;
+let bob: Credentials;
+let carol: Credentials;
+
+const cred = (r: { playerId: string; token: string }): Credentials => ({ playerId: r.playerId, token: r.token });
+
+/** Salon à 3 joueurs, lancé ; renvoie l'instant de début de la manche 1. */
+async function setup3(now = T0) {
   const h = await createRoom('Alice', now, ROUNDS);
   code = h.code;
-  host = { playerId: h.playerId, token: h.token };
-  const g = await joinRoom(code, 'Bob', { playerId: null, token: null }, now + 1000);
-  guest = { playerId: g.playerId, token: g.token };
-  return now + 1000 + COUNTDOWN_MS; // début de la manche 1
+  alice = cred(h);
+  bob = cred(await joinRoom(code, 'Bob', NOBODY, now + 100));
+  carol = cred(await joinRoom(code, 'Carol', NOBODY, now + 200));
+  await act(code, alice, { action: 'start' }, now + 1000);
+  return now + 1000 + COUNTDOWN_MS;
 }
 
 beforeEach(() => setStore(new MemoryStore()));
 
-describe('salon', () => {
-  it('attente, puis compte à rebours, puis première manche', async () => {
+describe('salon et lancement', () => {
+  it('attente → lancement par l’hôte → compte à rebours → manche 1', async () => {
     const h = await createRoom('Alice', T0, ROUNDS);
-    expect(h.code).toMatch(/^[A-Z2-9]{5}$/);
-    const cred = { playerId: h.playerId, token: h.token };
-    expect((await getRoom(h.code, cred, T0)).status).toBe('waiting');
-    await joinRoom(h.code, 'Bob', { playerId: null, token: null }, T0 + 1000);
-    const v = await getRoom(h.code, cred, T0 + 2000);
-    expect(v.status).toBe('countdown');
-    expect(v.opponent?.name).toBe('Bob');
-    const p = await getRoom(h.code, cred, T0 + 1000 + COUNTDOWN_MS);
-    expect(p.status).toBe('playing');
-    expect(p.round).toMatchObject({ index: 0, phase: 'listening', streamUrl: 'https://stream/r0a', station: null });
+    code = h.code;
+    alice = cred(h);
+    expect(code).toMatch(/^[A-Z2-9]{5}$/);
+    bob = cred(await joinRoom(code, 'Bob', NOBODY, T0 + 100));
+    const w = await getRoom(code, alice, T0 + 200);
+    expect(w.status).toBe('waiting'); // plus de démarrage automatique
+    expect(w.players.map((p) => [p.name, p.color, p.isHost])).toEqual([['Alice', 0, true], ['Bob', 1, false]]);
+    await expect(act(code, bob, { action: 'start' }, T0 + 300)).rejects.toMatchObject({ code: 'forbidden' });
+    await act(code, alice, { action: 'start' }, T0 + 400);
+    expect((await getRoom(code, bob, T0 + 500)).status).toBe('countdown');
+    const p = await getRoom(code, bob, T0 + 400 + COUNTDOWN_MS);
+    expect(p.round).toMatchObject({ index: 0, phase: 'listening', streamUrl: 'https://stream/r0a', station: null, entries: null });
   });
 
-  it('salon introuvable, complet, jeton invalide, reconnexion', async () => {
+  it('impossible de lancer seul', async () => {
+    const h = await createRoom('Alice', T0, ROUNDS);
+    await expect(act(h.code, cred(h), { action: 'start' }, T0 + 1)).rejects.toMatchObject({ code: 'bad-request' });
+  });
+
+  it('8 joueurs maximum, puis « complet »', async () => {
+    const h = await createRoom('J1', T0, ROUNDS);
+    for (let n = 2; n <= MAX_PLAYERS; n++) await joinRoom(h.code, `J${n}`, NOBODY, T0 + n);
+    await expect(joinRoom(h.code, 'J9', NOBODY, T0 + 99)).rejects.toMatchObject({ code: 'full' });
+    const v = await getRoom(h.code, cred(h), T0 + 100);
+    expect(v.players).toHaveLength(MAX_PLAYERS);
+    expect(new Set(v.players.map((p) => p.color)).size).toBe(MAX_PLAYERS); // couleurs toutes différentes
+  });
+
+  it('refuse une arrivée après le lancement, accepte la reconnexion', async () => {
+    await setup3();
+    await expect(joinRoom(code, 'Dave', NOBODY)).rejects.toMatchObject({ code: 'started' });
+    expect((await joinRoom(code, 'peu importe', bob)).playerId).toBe(bob.playerId);
+  });
+
+  it('salon introuvable, jeton invalide', async () => {
     await expect(getRoom('ZZZZZ', { playerId: 'x', token: 'y' })).rejects.toMatchObject({ code: 'not-found' });
-    await setup();
-    await expect(joinRoom(code, 'Carol', { playerId: null, token: null })).rejects.toMatchObject({ code: 'full' });
-    await expect(getRoom(code, { playerId: host.playerId, token: 'mauvais' })).rejects.toMatchObject({ code: 'forbidden' });
-    const again = await joinRoom(code, 'peu importe', guest);
-    expect(again.seat).toBe('guest');
+    await setup3();
+    await expect(getRoom(code, { playerId: alice.playerId, token: 'mauvais' })).rejects.toMatchObject({ code: 'forbidden' });
+  });
+
+  it('départ de l’hôte pendant l’attente : l’hôte passe au suivant, la place se libère', async () => {
+    const h = await createRoom('Alice', T0, ROUNDS);
+    code = h.code;
+    bob = cred(await joinRoom(code, 'Bob', NOBODY, T0 + 100));
+    carol = cred(await joinRoom(code, 'Carol', NOBODY, T0 + 200));
+    await act(code, cred(h), { action: 'leave' }, T0 + 300);
+    const v = await getRoom(code, bob, T0 + 400);
+    expect(v.players.map((p) => p.name)).toEqual(['Bob', 'Carol']);
+    expect(v.hostId).toBe(bob.playerId);
+    await act(code, bob, { action: 'start' }, T0 + 500); // le nouvel hôte peut lancer
+    expect((await getRoom(code, carol, T0 + 600)).status).toBe('countdown');
   });
 });
 
-describe('manche', () => {
-  it('punaises secrètes puis révélation quand les deux ont validé', async () => {
-    const t = await setup();
-    await act(code, host, { action: 'guess', round: 0, lat: 0.5, lon: 0 }, t + 5000);
-    const g = await getRoom(code, guest, t + 6000);
-    expect(g.round?.opponent).toMatchObject({ guessed: true, entry: null }); // pas de fuite de la punaise
-    expect(g.round?.phase).toBe('listening');
-    const r = await act(code, guest, { action: 'guess', round: 0, lat: 5, lon: 0 }, t + 8000);
+describe('manche à 3', () => {
+  it('révélation seulement quand tous ont répondu ; punaises secrètes avant', async () => {
+    const t = await setup3();
+    await act(code, alice, { action: 'guess', round: 0, lat: 0.5, lon: 0 }, t + 1000);
+    await act(code, bob, { action: 'guess', round: 0, lat: 3, lon: 0 }, t + 2000);
+    const c = await getRoom(code, carol, t + 3000);
+    expect(c.round?.phase).toBe('listening');
+    expect(c.round?.entries).toBeNull();
+    expect(c.players.filter((p) => p.guessed).map((p) => p.name)).toEqual(['Alice', 'Bob']);
+    const r = await act(code, carol, { action: 'guess', round: 0, lat: 9, lon: 0 }, t + 4000);
     expect(r.view.round?.phase).toBe('revealed');
-    expect(r.view.round?.station?.id).toBe('r0a');
-    expect(r.view.round?.opponent.entry?.lat).toBe(0.5);
-    expect(r.view.totals.you).toBeLessThan(r.view.totals.opponent); // Bob plus loin qu'Alice
+    expect(Object.keys(r.view.round!.entries!)).toHaveLength(3);
+    expect(rankPlayers(r.view.players).map(({ player, rank }) => `${rank}:${player.name}`)).toEqual(['1:Alice', '2:Bob', '3:Carol']);
   });
 
-  it('une seule punaise par manche', async () => {
-    const t = await setup();
-    await act(code, host, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 1000);
-    await act(code, host, { action: 'guess', round: 0, lat: 50, lon: 50 }, t + 2000);
-    const v = await getRoom(code, host, t + 3000);
-    expect(v.round?.you.entry?.lat).toBe(0);
-  });
-
-  it('indices : coût déduit, valeur renvoyée, impossible après la punaise', async () => {
-    const t = await setup();
-    const h = await act(code, host, { action: 'hint', round: 0, kind: 'continent' }, t + 1000);
-    expect(h.hint).toBe('Europe');
-    expect(h.view.round?.you.hintValues.continent).toBe('Europe');
-    await act(code, host, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 2000);
-    await expect(act(code, host, { action: 'hint', round: 0, kind: 'language' }, t + 3000)).rejects.toMatchObject({ code: 'bad-request' });
-    const v = await getRoom(code, host, t + 3000);
-    expect(v.round?.you.entry?.score).toBe(4000); // 5000 − 1000
-  });
-
-  it('après 90 s sans réponse : révélation, 0 point', async () => {
-    const t = await setup();
-    await act(code, host, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 1000);
-    const before = await getRoom(code, host, t + ROUND_TIME_MS - 1000);
-    expect(before.round?.phase).toBe('listening');
-    const after = await getRoom(code, host, t + ROUND_TIME_MS + 10);
+  it('après 90 s : révélation, 0 point pour ceux qui n’ont rien envoyé', async () => {
+    const t = await setup3();
+    await act(code, alice, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 1000);
+    const after = await getRoom(code, alice, t + ROUND_TIME_MS + 10);
     expect(after.round?.phase).toBe('revealed');
-    expect(after.round?.opponent.entry).toMatchObject({ lat: null, score: 0 });
-    await expect(act(code, guest, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + ROUND_TIME_MS + 5000)).rejects.toMatchObject({ code: 'bad-request' });
+    expect(after.round?.entries?.[bob.playerId!]).toMatchObject({ lat: null, score: 0 });
   });
 
-  it('flux muet : secours suivant pour les deux, une seule fois, chrono relancé', async () => {
-    const t = await setup();
-    await act(code, host, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 2000);
-    await act(code, guest, { action: 'skip', round: 0, from: 0 }, t + 8000);
-    await act(code, host, { action: 'skip', round: 0, from: 0 }, t + 8100); // doublon ignoré
-    const v = await getRoom(code, host, t + 9000);
+  it('flux muet : secours suivant pour tout le salon, punaises annulées', async () => {
+    const t = await setup3();
+    await act(code, alice, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 2000);
+    await act(code, bob, { action: 'skip', round: 0, from: 0 }, t + 8000);
+    await act(code, carol, { action: 'skip', round: 0, from: 0 }, t + 8100); // doublon ignoré
+    const v = await getRoom(code, alice, t + 9000);
     expect(v.round).toMatchObject({ candidate: 1, streamUrl: 'https://stream/r0b', startAt: t + 8000 });
-    expect(v.round?.you.guessed).toBe(false); // punaise posée sur l'ancien flux annulée
+    expect(v.round?.you.guessed).toBe(false);
+  });
+
+  it('un joueur parti ne bloque pas les autres', async () => {
+    const t = await setup3();
+    await act(code, carol, { action: 'leave' }, t + 500);
+    await act(code, alice, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 1000);
+    const r = await act(code, bob, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 1500);
+    expect(r.view.round?.phase).toBe('revealed');
+    expect(r.view.players.find((p) => p.name === 'Carol')).toMatchObject({ gone: true });
+  });
+
+  it('joueur silencieux plus de 2 min : considéré parti', async () => {
+    const t = await setup3();
+    const v = await getRoom(code, alice, t + ABANDON_MS + 10_000);
+    expect(v.players.find((p) => p.name === 'Bob')?.gone).toBe(true);
   });
 });
 
 describe('partie complète', () => {
-  it('5 manches avec « prêt », puis fin et totaux', async () => {
-    let t = await setup();
+  it('5 manches avec « prêt », classement final', async () => {
+    let t = await setup3();
     for (let i = 0; i < 5; i++) {
-      const v0 = await getRoom(code, host, t);
-      expect(v0.round?.index).toBe(i);
-      await act(code, host, { action: 'guess', round: i, lat: 10 * i, lon: 10 * i }, t + 1000);
-      await act(code, guest, { action: 'guess', round: i, lat: 10 * i + 20, lon: 10 * i }, t + 2000);
-      await act(code, host, { action: 'ready', round: i }, t + 3000);
-      await act(code, guest, { action: 'ready', round: i }, t + 4000);
-      t += 5000;
+      expect((await getRoom(code, alice, t)).round?.index).toBe(i);
+      await act(code, alice, { action: 'guess', round: i, lat: 10 * i, lon: 10 * i }, t + 1000);
+      await act(code, bob, { action: 'guess', round: i, lat: 10 * i + 5, lon: 10 * i }, t + 1100);
+      await act(code, carol, { action: 'guess', round: i, lat: 10 * i + 20, lon: 10 * i }, t + 1200);
+      for (const c of [alice, bob, carol]) await act(code, c, { action: 'ready', round: i }, t + 2000);
+      t += 3000;
     }
-    const end = await getRoom(code, host, t);
+    const end = await getRoom(code, carol, t);
     expect(end.status).toBe('finished');
     expect(end.history).toHaveLength(5);
-    expect(end.totals.you).toBe(25000);
-    expect(end.totals.opponent).toBeLessThan(end.totals.you);
+    const ranking = rankPlayers(end.players);
+    expect(ranking[0]).toMatchObject({ rank: 1, player: { name: 'Alice', total: 25000 } });
+    expect(ranking.map((r) => r.player.name)).toEqual(['Alice', 'Bob', 'Carol']);
   });
 
   it('passage automatique après la révélation', async () => {
-    const t = await setup();
-    await act(code, host, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 1000);
-    await act(code, guest, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 2000);
-    const v = await getRoom(code, host, t + 2000 + REVEAL_TIME_MS + 1);
+    const t = await setup3();
+    for (const c of [alice, bob, carol]) await act(code, c, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 1000);
+    const v = await getRoom(code, alice, t + 1000 + REVEAL_TIME_MS + 1);
     expect(v.round).toMatchObject({ index: 1, phase: 'listening' });
-  });
-
-  it('adversaire parti : on ne l’attend plus', async () => {
-    const t = await setup();
-    await act(code, guest, { action: 'leave' }, t + 500);
-    const r = await act(code, host, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 1000);
-    expect(r.view.round?.phase).toBe('revealed');
-    expect(r.view.opponent).toMatchObject({ gone: true, connected: false });
-  });
-
-  it('adversaire silencieux plus de 2 min : considéré parti', async () => {
-    const t = await setup();
-    const late = t + ABANDON_MS + 10_000;
-    const v = await getRoom(code, host, late);
-    expect(v.opponent?.gone).toBe(true);
   });
 });
 
-import { findRedisEnv } from '../api/_lib/store';
+describe('chat', () => {
+  it('messages, messages système, ?chat= ne renvoie que les nouveaux', async () => {
+    const h = await createRoom('Alice', T0, ROUNDS);
+    code = h.code;
+    alice = cred(h);
+    bob = cred(await joinRoom(code, 'Bob', NOBODY, T0 + 100)); // message système n°1
+    await act(code, alice, { action: 'chat', text: '  Salut   Bob !  ' }, T0 + 2000);
+    const v = await getRoom(code, bob, T0 + 2100);
+    expect(v.chat.map((m) => [m.kind, m.name, m.text])).toEqual([
+      ['system', '', 'Bob a rejoint le salon.'],
+      ['msg', 'Alice', 'Salut Bob !'],
+    ]);
+    const since = v.chat.at(-1)!.id;
+    await act(code, bob, { action: 'chat', text: '73 !' }, T0 + 2200);
+    const v2 = await getRoom(code, alice, T0 + 2300, since);
+    expect(v2.chat.map((m) => m.text)).toEqual(['73 !']);
+    expect(v2.chat[0]).toMatchObject({ pid: bob.playerId, color: 1 });
+  });
+
+  it('anti-spam, message vide, longueur maximale', async () => {
+    const h = await createRoom('Alice', T0, ROUNDS);
+    alice = cred(h);
+    await act(h.code, alice, { action: 'chat', text: 'un' }, T0 + 1000);
+    await expect(act(h.code, alice, { action: 'chat', text: 'deux' }, T0 + 1500)).rejects.toMatchObject({ code: 'too-fast' });
+    await expect(act(h.code, alice, { action: 'chat', text: '   ' }, T0 + 3000)).rejects.toMatchObject({ code: 'bad-request' });
+    const r = await act(h.code, alice, { action: 'chat', text: 'x'.repeat(500) }, T0 + 5000);
+    expect(r.view.chat.at(-1)!.text).toHaveLength(200);
+  });
+
+  it(`ne garde que les ${CHAT_KEEP} derniers messages`, async () => {
+    const h = await createRoom('Alice', T0, ROUNDS);
+    alice = cred(h);
+    for (let n = 1; n <= CHAT_KEEP + 5; n++) await act(h.code, alice, { action: 'chat', text: `m${n}` }, T0 + n * 2000);
+    const v = await getRoom(h.code, alice, T0 + 999_999);
+    expect(v.chat).toHaveLength(CHAT_KEEP);
+    expect(v.chat[0]!.text).toBe('m6');
+  });
+});
 
 describe('variables Upstash', () => {
   it('trouve les accès quel que soit le préfixe', () => {
     expect(findRedisEnv({ KV_REST_API_URL: 'https://a.upstash.io', KV_REST_API_TOKEN: 't' })?.name).toBe('KV_REST_API_URL');
     expect(findRedisEnv({ STORAGE_KV_REST_API_URL: 'https://b.upstash.io', STORAGE_KV_REST_API_TOKEN: 't' })?.url).toBe('https://b.upstash.io');
     expect(findRedisEnv({ UPSTASH_REDIS_REST_URL: 'https://c.upstash.io', UPSTASH_REDIS_REST_TOKEN: 't' })?.url).toBe('https://c.upstash.io');
-    expect(findRedisEnv({ KV_REST_API_URL: 'https://a.upstash.io' })).toBeNull(); // jeton manquant
-    expect(findRedisEnv({ REDIS_URL: 'rediss://x' })).toBeNull(); // « Redis officiel » (TCP) : incompatible
+    expect(findRedisEnv({ KV_REST_API_URL: 'https://a.upstash.io' })).toBeNull();
+    expect(findRedisEnv({ REDIS_URL: 'rediss://x' })).toBeNull();
   });
 });

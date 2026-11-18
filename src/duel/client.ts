@@ -132,9 +132,9 @@ export const api = {
   create: (name: string) => request<JoinResponse>('POST', '/api/rooms', { name }),
   join: (code: string, name: string, id: Identity | null) =>
     request<JoinResponse>('POST', `/api/rooms/${code}`, { action: 'join', name } satisfies DuelAction, id),
-  get: (id: Identity) => request<RoomView>('GET', `/api/rooms/${id.code}`, undefined, id),
-  act: (id: Identity, action: Exclude<DuelAction, { action: 'join' }>) =>
-    request<{ view: RoomView; hint?: string }>('POST', `/api/rooms/${id.code}`, action, id),
+  get: (id: Identity, chatSince = 0) => request<RoomView>('GET', `/api/rooms/${id.code}?chat=${chatSince}`, undefined, id),
+  act: (id: Identity, action: Exclude<DuelAction, { action: 'join' }>, chatSince = 0) =>
+    request<{ view: RoomView; hint?: string }>('POST', `/api/rooms/${id.code}?chat=${chatSince}`, action, id),
 };
 
 export type { HintKind };
