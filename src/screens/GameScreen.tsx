@@ -11,6 +11,7 @@ import { formatInt, formatKm } from '../format';
 import type { SoloGame } from '../game/solo';
 import { t } from '../i18n/fr';
 import type { InkMap } from '../map/ink-map';
+import { QslCardView } from '../qsl/QslCardView';
 
 const HINT_ORDER: HintKind[] = ['language', 'continent', 'timezone'];
 
@@ -136,6 +137,14 @@ export function GameScreen({ game }: { game: SoloGame }) {
               <dt>{t.round.points}</dt>
               <dd class="round-points">{formatInt(round.score)}</dd>
             </dl>
+            {round.card && round.qsl ? (
+              <div class="round-qsl">
+                <p class={`round-qsl-msg is-${round.qsl}`}>{t.qsl.received[round.qsl]}</p>
+                <QslCardView card={round.card} />
+              </div>
+            ) : (
+              <p class="round-qsl-none">{t.qsl.none}</p>
+            )}
             <button class="primary-action" onClick={next}>
               {game.isLastRound ? t.round.finish : t.round.next}
             </button>

@@ -2,6 +2,7 @@
 //   countries.json  — Natural Earth 1:50m, coordonnées arrondies, propriétés {iso, name, cont}
 //   places.json     — villes Natural Earth 1:10m : [nom, lat, lon, iso][]
 //   timezones.json  — IANA zone1970.tab : [iso[], lat, lon, zone][]
+//   shared/album-countries.json — pays ayant ≥ 3 stations dans Radio Browser (emplacements de l'album)
 // Exécution : node scripts/build-data.ts (Node ≥ 22.18, types effacés nativement)
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -123,6 +124,15 @@ async function buildZones() {
   return rows;
 }
 
+async function buildAlbumCountries() {
+  const res = await fetch('https://de1.api.radio-browser.info/json/countries', {
+    headers: { 'User-Agent': 'Radioguessr-build/1.0' },
+  });
+  if (!res.ok) throw new Error(`Radio Browser: HTTP ${res.status}`);
+  const list = (await res.json()) as { iso_3166_1: string; stationcount: number }[];
+  return [...new Set(list.filter((c) => c.stationcount >= 3 && c.iso_3166_1).map((c) => c.iso_3166_1.toUpperCase()))].sort();
+}
+
 await mkdir(CACHE, { recursive: true });
 await mkdir(OUT, { recursive: true });
 const outputs = {
@@ -135,3 +145,7 @@ for (const [name, data] of Object.entries(outputs)) {
   await writeFile(join(OUT, name), json);
   console.log(`✓ public/data/${name}  ${(json.length / 1024).toFixed(0)} ko`);
 }
+
+const album = JSON.stringify(await buildAlbumCountries());
+await writeFile(join(ROOT, 'shared', 'album-countries.json'), album + '\n');
+console.log(`✓ shared/album-countries.json  ${JSON.parse(album).length} pays`);

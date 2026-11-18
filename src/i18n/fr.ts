@@ -2,10 +2,10 @@
 
 export const t = {
   app: {
-    name: 'QSL',
+    name: 'Radioguessr',
     tagline: 'Chasse aux stations lointaines',
-    tabTitle: 'QSL — chasse aux stations lointaines',
-    tabTitleListening: 'QSL — station inconnue',
+    tabTitle: 'Radioguessr — chasse aux stations lointaines',
+    tabTitleListening: 'Radioguessr — station inconnue',
     mediaTitle: 'Station inconnue',
   },
   home: {
@@ -50,7 +50,34 @@ export const t = {
     quit: 'Quitter',
     quitConfirm: 'Abandonner la partie en cours ?',
   },
+  qsl: {
+    flip: 'Retourner la carte',
+    station: 'Station',
+    location: 'Lieu',
+    coords: 'Coordonnées',
+    frequency: 'Fréquence',
+    report: 'Écart du rapport',
+    date: 'Captée le',
+    rarity: { gold: 'Or', high: 'Rare', medium: 'Peu commune', simple: 'Simple' },
+    received: {
+      new: 'Carte QSL reçue !',
+      upgraded: 'Carte améliorée !',
+      kept: 'Votre carte de ce pays était déjà meilleure.',
+    },
+    none: 'Trop loin pour recevoir la carte QSL (il faut être à moins de 1 500 km).',
+  },
+  album: {
+    title: 'Album QSL',
+    count: (n: number, total: number) => `${n} / ${total} pays`,
+    all: 'Tous',
+    empty: 'Aucune carte pour l’instant. Localisez une station à moins de 1 500 km pour recevoir sa carte QSL.',
+    back: 'Accueil',
+    close: 'Fermer',
+    flipHint: 'Cliquez sur la carte pour la retourner.',
+  },
   recap: {
+    cards: 'Cartes QSL reçues',
+    noCards: 'Aucune carte cette fois-ci.',
     title: 'Récapitulatif d’écoute',
     total: 'Score final',
     outOf: (max: string) => `sur ${max}`,

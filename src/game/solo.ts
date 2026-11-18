@@ -5,6 +5,9 @@ import { computeHints, type StationHints, type ZoneRow } from '../../shared/hint
 import { haversineKm, ROUNDS_PER_GAME, roundScore, type LatLon } from '../../shared/scoring';
 import type { Game, HintKind, Round, Station } from '../../shared/types';
 import { RadioPlayer } from '../audio/radio';
+import { createQslCard } from '../../shared/qsl';
+import { collectCard, recordGame } from '../state/save';
+import { nearestCity, preloadPlaces } from './places';
 import { StationPool } from './station-pool';
 
 export type SoloPhase = 'tuning' | 'listening' | 'revealed' | 'finished' | 'error';
@@ -51,6 +54,7 @@ export class SoloGame {
 
   /** À appeler depuis un geste utilisateur (politique d'autoplay des navigateurs). */
   async start(): Promise<void> {
+    void preloadPlaces();
     await this.tuneRound();
   }
 
@@ -65,6 +69,8 @@ export class SoloGame {
       const [station, zones] = await Promise.all([this.pool.tuneNext(this.player), loadZones()]);
       if (this.disposed) return;
       this.station = station;
+      // Tests automatisés uniquement : absent du build de production (import.meta.env.DEV = false).
+      if (import.meta.env.DEV) Object.assign(window, { __rgDebugStation: station, __rgGame: this });
       this.hints.value = computeHints(station, zones);
       this.phase.value = 'listening';
       this.game.value = { ...this.game.value, phase: 'listening' };
@@ -98,6 +104,7 @@ export class SoloGame {
     if (this.phase.value !== 'listening' || !station || !guess) return null;
     const distanceKm = haversineKm(guess, station);
     const { raw, score } = roundScore(distanceKm, this.usedHints.value);
+    const card = createQslCard({ station, distanceKm, city: nearestCity(station) });
     const round: Round = {
       index: this.game.value.current,
       station,
@@ -106,7 +113,8 @@ export class SoloGame {
       distanceKm,
       rawScore: raw,
       score,
-      qsl: null, // jalon 4
+      card,
+      qsl: card ? collectCard(card) : null,
     };
     this.game.value = { ...this.game.value, rounds: [...this.game.value.rounds, round], phase: 'revealed' };
     this.phase.value = 'revealed';
@@ -121,6 +129,7 @@ export class SoloGame {
     if (this.phase.value !== 'revealed') return;
     if (this.isLastRound) {
       this.player.stop();
+      recordGame(this.game.value.rounds);
       this.game.value = { ...this.game.value, phase: 'finished' };
       this.phase.value = 'finished';
       return;

@@ -7,6 +7,7 @@ import { MapView } from '../components/MapView';
 import { formatInt, formatKm } from '../format';
 import type { SoloGame } from '../game/solo';
 import { t } from '../i18n/fr';
+import { QslCardView } from '../qsl/QslCardView';
 
 export function Recap({ game }: { game: SoloGame }) {
   const rounds = game.game.value.rounds;
@@ -37,6 +38,19 @@ export function Recap({ game }: { game: SoloGame }) {
             </li>
           ))}
         </ol>
+
+        <h2 class="recap-subtitle">{t.recap.cards}</h2>
+        {rounds.some((r) => r.card && r.qsl !== 'kept') ? (
+          <div class="recap-cards">
+            {rounds
+              .filter((r) => r.card && r.qsl !== 'kept')
+              .map((r) => (
+                <QslCardView key={r.index} card={r.card!} />
+              ))}
+          </div>
+        ) : (
+          <p>{t.recap.noCards}</p>
+        )}
 
         <div class="recap-actions">
           <button class="primary-action" onClick={startWorldGame}>

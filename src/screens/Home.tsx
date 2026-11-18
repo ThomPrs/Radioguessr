@@ -1,4 +1,5 @@
-import { startWorldGame } from '../app';
+import { showAlbum, startWorldGame } from '../app';
+import { save } from '../state/save';
 import { t } from '../i18n/fr';
 
 export function Home() {
@@ -17,8 +18,8 @@ export function Home() {
         <button disabled>
           {t.home.duel} <small>({t.home.soon})</small>
         </button>
-        <button disabled>
-          {t.home.album} <small>({t.home.soon})</small>
+        <button onClick={showAlbum}>
+          {t.home.album} <small>({Object.keys(save.value.album).length})</small>
         </button>
         <button disabled>
           {t.home.settings} <small>({t.home.soon})</small>

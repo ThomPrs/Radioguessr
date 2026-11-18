@@ -5,7 +5,7 @@ import { fetchCountries, fetchCountryStations, pickCountry, type CountryInfo } f
 import type { Continent, Station } from '../../shared/types';
 import type { RadioPlayer } from '../audio/radio';
 
-const COUNTRIES_CACHE_KEY = 'qsl:rb-countries:v1';
+const COUNTRIES_CACHE_KEY = 'radioguessr:rb-countries:v1';
 const COUNTRIES_CACHE_TTL_MS = 24 * 3600 * 1000;
 const MAX_STREAMS_PER_COUNTRY = 3;
 const MAX_TOTAL_ATTEMPTS = 15;

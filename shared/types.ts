@@ -1,5 +1,7 @@
 // Types partagés entre le front (src/) et les fonctions serverless (api/).
 
+import type { QslCard } from './qsl';
+
 export type Continent = 'AF' | 'AN' | 'AS' | 'EU' | 'NA' | 'OC' | 'SA';
 
 export type Codec = 'MP3' | 'AAC' | 'AAC+';
@@ -35,6 +37,8 @@ export interface Round {
   distanceKm: number | null;
   rawScore: number;
   score: number;
+  /** Carte QSL méritée par ce rapport (distance < 1 500 km), et son sort dans l'album. */
+  card: QslCard | null;
   qsl: 'new' | 'upgraded' | 'kept' | null;
 }
 

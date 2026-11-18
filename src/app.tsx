@@ -3,11 +3,12 @@
 import { signal } from '@preact/signals';
 import { SoloGame } from './game/solo';
 import { t } from './i18n/fr';
+import { Album } from './screens/Album';
 import { GameScreen } from './screens/GameScreen';
 import { Home } from './screens/Home';
 import { Recap } from './screens/Recap';
 
-type Screen = { name: 'home' } | { name: 'game'; game: SoloGame } | { name: 'recap'; game: SoloGame };
+type Screen = { name: 'home' } | { name: 'album' } | { name: 'game'; game: SoloGame } | { name: 'recap'; game: SoloGame };
 
 const screen = signal<Screen>({ name: 'home' });
 
@@ -26,6 +27,11 @@ export function goHome(): void {
   screen.value = { name: 'home' };
 }
 
+export function showAlbum(): void {
+  goHome();
+  screen.value = { name: 'album' };
+}
+
 export function showRecap(game: SoloGame): void {
   document.title = t.app.tabTitle;
   screen.value = { name: 'recap', game };
@@ -40,5 +46,7 @@ export function App() {
       return <GameScreen key={s.game.game.value.id} game={s.game} />;
     case 'recap':
       return <Recap game={s.game} />;
+    case 'album':
+      return <Album />;
   }
 }
