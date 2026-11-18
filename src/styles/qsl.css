@@ -381,10 +381,10 @@
 .env-stamp {
   --rot: -10deg;
   position: absolute;
-  right: 6%;
-  bottom: 16%;
+  right: 9%;
+  bottom: 20%;
   z-index: 7;
-  width: 30%;
+  width: 28%;
   aspect-ratio: 1;
   border-radius: 50%;
   border: 5px double var(--stamp-red);
@@ -402,7 +402,9 @@
   pointer-events: none;
 }
 .env-stamp strong { font-family: var(--font-title); font-size: 1.9em; letter-spacing: 0.04em; }
-.qsl-gold .env-stamp { color: #a8841a; border-color: #c9a227; }
+.qsl-gold ~ .env-stamp { color: #a8841a; border-color: #c9a227; }
+/* Carte retournée : le tampon (posé sur le recto) disparaît. visibility n'est pas animée, elle l'emporte. */
+.qsl.is-flipped ~ .env-stamp { visibility: hidden; }
 .step-stamped .env-stamp { animation: stamp-thump 0.28s cubic-bezier(0.5, 0, 0.75, 0) forwards; }
 @keyframes stamp-thump {
   from { opacity: 0; transform: rotate(var(--rot)) scale(2.4); }

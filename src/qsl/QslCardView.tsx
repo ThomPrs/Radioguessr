@@ -1,6 +1,5 @@
 // Carte QSL : recto (indicatif + vignette) et verso (message, timbre, tampon SINPO). Retournable.
 
-import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
 import type { QslCard } from '../../shared/qsl';
 import type { Continent } from '../../shared/types';
@@ -34,11 +33,9 @@ interface Props {
   flippable?: boolean;
   /** Démarrer côté verso. */
   initialSide?: 'front' | 'back';
-  /** Élément posé sur le recto (tampon de réception) : il tourne avec la carte. */
-  frontOverlay?: ComponentChildren;
 }
 
-export function QslCardView({ card, flippable = true, initialSide = 'front', frontOverlay }: Props) {
+export function QslCardView({ card, flippable = true, initialSide = 'front' }: Props) {
   const [flipped, setFlipped] = useState(initialSide === 'back');
   const accent = CONTINENT_ACCENT[card.continent];
   const style = { '--accent': accent } as Record<string, string>;
@@ -79,7 +76,6 @@ export function QslCardView({ card, flippable = true, initialSide = 'front', fro
               {card.city !== card.country && <> — {card.country}</>}
             </span>
           </div>
-          {frontOverlay}
         </div>
 
         {/* ── Verso ── */}
