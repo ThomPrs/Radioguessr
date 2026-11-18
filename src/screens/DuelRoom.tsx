@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { countryNameFr } from '../../shared/countries';
 import { DUEL_ROUNDS, ROUND_TIME_MS, type DuelEntry, type RoomView } from '../../shared/duel';
 import { shortStationName } from '../../shared/qsl';
-import { HINT_COST } from '../../shared/scoring';
+import { HINT_COST, hintsCost } from '../../shared/scoring';
 import type { HintKind } from '../../shared/types';
 import { clickSound, pinSound, stampSound } from '../audio/sfx';
 import { goHome, openDuelLobby } from '../app';
@@ -229,10 +229,18 @@ function Playing({ session, view }: { session: DuelSession; view: RoomView }) {
                   }}
                 >
                   <span class="hint-label">{t.hints[kind]}</span>
-                  {value ? <span class="hint-value">{value}</span> : <span class="hint-cost">{t.hints.cost(HINT_COST[kind])}</span>}
+                  {value ? (
+                    <span class="hint-used">
+                      <span class="hint-value">{value}</span>
+                      <span class="hint-paid">{t.hints.paid(formatInt(HINT_COST[kind]))}</span>
+                    </span>
+                  ) : (
+                    <span class="hint-cost">{t.hints.cost(HINT_COST[kind])}</span>
+                  )}
                 </button>
               );
             })}
+            {r.you.hints.length > 0 && <p class="hint-total">{t.hints.totalCost(formatInt(hintsCost(r.you.hints)))}</p>}
           </div>
         )}
 
@@ -314,7 +322,10 @@ function EntryRow({ who, entry, mine = false }: { who: string; entry: DuelEntry 
         <span class={`pin-dot ${mine ? 'red' : 'blue'}`} aria-hidden="true" /> {who}
       </th>
       <td>{entry?.distanceKm != null ? formatKm(entry.distanceKm) : t.duel.noAnswer}</td>
-      <td class="duel-pts">{formatInt(entry?.score ?? 0)}</td>
+      <td class="duel-pts">
+        {formatInt(entry?.score ?? 0)}
+        {entry && entry.hints.length > 0 && <small class="duel-hint-cost">{t.round.hintsShort(formatInt(hintsCost(entry.hints)))}</small>}
+      </td>
     </tr>
   );
 }

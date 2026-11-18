@@ -248,6 +248,25 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--stamp-red);
 .hint-cost { color: var(--stamp-red); font-family: var(--font-title); }
 .hint-value { color: var(--post-blue); text-align: right; }
 .hint-card.is-used { background-color: #f3ead2; }
+.hint-used { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.hint-paid {
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  color: var(--stamp-red);
+  border: 2px solid var(--stamp-red);
+  padding: 0 6px;
+  transform: rotate(-4deg);
+  opacity: 0.85;
+}
+.hint-total {
+  margin: 2px 0 0;
+  padding: 6px 10px;
+  background: var(--stamp-red);
+  color: var(--paper);
+  font-size: 0.9rem;
+  box-shadow: 0 3px 6px rgb(0 0 0 / 0.3);
+}
+.report-floor { margin: 0 0 6px; font-size: 0.85rem; color: var(--stamp-red); }
 
 /* Bouton « envoyer le rapport » : un gros tampon encreur */
 .stamp-button {
@@ -275,7 +294,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--stamp-red);
 .report-line { display: grid; grid-template-columns: 7.5em 1fr; gap: 6px; padding: 3px 0; border-bottom: 1px dotted rgb(58 54 50 / 0.4); }
 .report-line dt { opacity: 0.65; font-size: 0.85rem; }
 .report-line dd { margin: 0; min-height: 1.2em; }
-.report-points { margin: 10px 0 4px; font-family: var(--font-title); font-size: 2rem; color: var(--stamp-red); min-height: 1.3em; }
+.report-points { margin: 10px 0 4px; font-family: var(--font-title); font-size: clamp(1.3rem, 5vw, 2rem); color: var(--stamp-red); min-height: 1.3em; }
 .report-card { margin-top: 10px; }
 .report-qsl { font-family: var(--font-title); margin: 0 0 8px; color: var(--stamp-red); }
 .report-qsl.is-kept { font-family: var(--font-type); color: var(--ink); opacity: 0.8; }

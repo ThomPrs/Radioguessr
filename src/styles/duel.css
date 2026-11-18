@@ -78,6 +78,7 @@
 .duel-compare th, .duel-compare td { padding: 4px 2px; border-bottom: 1px dotted rgb(58 54 50 / 0.4); text-align: left; }
 .duel-compare .duel-pts { font-family: var(--font-title); text-align: right; color: var(--stamp-red); }
 .duel-compare .is-theirs .duel-pts { color: var(--post-blue); }
+.duel-hint-cost { display: block; font-family: var(--font-type); font-size: 0.72rem; color: var(--ink); opacity: 0.75; }
 .pin-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--ink); vertical-align: middle; }
 .pin-dot.red { background: var(--stamp-red); }
 .pin-dot.blue { background: var(--post-blue); }

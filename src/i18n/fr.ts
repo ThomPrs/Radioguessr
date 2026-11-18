@@ -40,6 +40,8 @@ export const t = {
     cost: (n: number) => `−${n} pts`,
     unknown: 'Inconnue',
     localTime: (time: string) => `il y est ${time}`,
+    totalCost: (n: string) => `Coût des indices : −${n} pts, retirés à la fin de la manche`,
+    paid: (n: string) => `−${n}`,
   },
   round: {
     label: (i: number, n: number) => `Manche ${i} / ${n}`,
@@ -50,6 +52,9 @@ export const t = {
     distance: 'Distance',
     points: 'Points',
     hintsPenalty: 'Indices',
+    rawPoints: 'Points de distance',
+    floorNote: 'Les indices coûtent plus que les points gagnés : le score est ramené à 0.',
+    hintsShort: (n: string) => `dont −${n} d’indices`,
     stationWas: 'Station captée',
     report: 'Rapport d’écoute',
     quit: 'Quitter',

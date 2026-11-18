@@ -128,13 +128,17 @@ export function GameScreen({ game }: { game: SoloGame }) {
                 >
                   <span class="hint-label">{t.hints[kind]}</span>
                   {isUsed ? (
-                    <Typewriter class="hint-value" text={hintValue(kind)} speed={28} />
+                    <span class="hint-used">
+                      <Typewriter class="hint-value" text={hintValue(kind)} speed={28} />
+                      <span class="hint-paid">{t.hints.paid(formatInt(HINT_COST[kind]))}</span>
+                    </span>
                   ) : (
                     <span class="hint-cost">{unavailable ? t.hints.unknown : t.hints.cost(HINT_COST[kind])}</span>
                   )}
                 </button>
               );
             })}
+            {phase === 'listening' && used.length > 0 && <p class="hint-total">{t.hints.totalCost(formatInt(hintsCost(used)))}</p>}
           </div>
         )}
 
@@ -181,7 +185,12 @@ function ReportSlip({ round }: { round: Round }) {
     [t.qsl.location, [round.station.state, countryNameFr(round.station.countryCode)].filter(Boolean).join(', ')],
     [t.round.distance, round.distanceKm != null ? formatKm(round.distanceKm) : '—'],
   ];
-  if (round.hints.length > 0) lines.push([t.round.hintsPenalty, `−${formatInt(hintsCost(round.hints))}`]);
+  const cost = hintsCost(round.hints);
+  if (cost > 0) {
+    lines.push([t.round.rawPoints, formatInt(round.rawScore)]);
+    lines.push([t.round.hintsPenalty, `−${formatInt(cost)}`]);
+  }
+  const floored = cost > 0 && round.rawScore - cost < 0;
 
   // Chaque ligne commence quand la précédente est finie (≈ 30 ms par caractère).
   let delay = 200;
@@ -205,8 +214,14 @@ function ReportSlip({ round }: { round: Round }) {
         ))}
       </dl>
       <p class="report-points">
-        <Typewriter text={`${formatInt(round.score)} pts`} delay={delay} speed={60} onDone={typeBell} />
+        <Typewriter
+          text={cost > 0 && !floored ? `${formatInt(round.rawScore)} − ${formatInt(cost)} = ${formatInt(round.score)} pts` : `${formatInt(round.score)} pts`}
+          delay={delay}
+          speed={45}
+          onDone={typeBell}
+        />
       </p>
+      {floored && <p class="report-floor">{t.round.floorNote}</p>}
       {round.card && round.qsl ? (
         <div class="report-card">
           <p class={`report-qsl is-${round.qsl}`}>{t.qsl.received[round.qsl]}</p>
