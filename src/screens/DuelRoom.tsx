@@ -19,6 +19,7 @@ import { HINT_COST, hintsCost } from '../../shared/scoring';
 import type { HintKind } from '../../shared/types';
 import { clickSound, pinSound, stampSound } from '../audio/sfx';
 import { goHome, openDuelLobby } from '../app';
+import { BreakingNews } from '../components/BreakingNews';
 import { ChatPanel } from '../components/ChatPanel';
 import { KraftEnvelope } from '../components/KraftEnvelope';
 import { PinArt } from '../pins/PinArt';
@@ -67,6 +68,7 @@ export function DuelRoom({ session }: { session: DuelSession }) {
   if (v.status === 'waiting') return <Waiting session={session} view={v} />;
   if (v.status === 'countdown') return <Countdown session={session} view={v} />;
   if (v.status === 'finished') return <Results session={session} view={v} />;
+  if (v.status === 'news' && v.news) return <NewsStage session={session} view={v} />;
   return <Playing session={session} view={v} />;
 }
 
@@ -100,6 +102,23 @@ function Waiting({ session, view }: { session: DuelSession; view: RoomView }) {
 
           <h2 class="waiting-subtitle">{t.duel.players(view.players.length, MAX_PLAYERS)}</h2>
           <PlayerList players={view.players} youId={view.youId} phase="waiting" />
+
+          <label class="news-option" title={isHost ? undefined : t.news.hostOnly}>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={view.breakingNews}
+              disabled={!isHost || session.busy.value}
+              onChange={(e) => {
+                clickSound();
+                void session.setBreakingNews(e.currentTarget.checked);
+              }}
+            />
+            <span class="news-option-text">
+              <strong class="news-option-title">{t.news.option}</strong>
+              <small>{isHost ? t.news.optionDesc : t.news.hostOnly}</small>
+            </span>
+          </label>
 
           {isHost ? (
             <>
@@ -381,6 +400,52 @@ function RoundTable({ players, entries, youId }: { players: PlayerView[]; entrie
   );
 }
 
+// ── Breaking News ──────────────────────────────────────────────────────────
+
+function NewsStage({ session, view }: { session: DuelSession; view: RoomView }) {
+  const n = view.news!;
+  const others = view.players.filter((p) => p.id !== view.youId && !p.gone);
+  const rows = n.reveal
+    ? view.players
+        .map((p) => ({ id: p.id, name: p.id === view.youId ? t.duel.you : p.name, color: PLAYER_COLORS[p.color], entry: n.reveal!.entries[p.id] ?? null, isYou: p.id === view.youId }))
+        .sort((a, b) => (b.entry?.score ?? 0) - (a.entry?.score ?? 0))
+    : [];
+  return (
+    <main class="desk game-layout duel-layout">
+      <section class="game-panel">
+        <header class="game-header">
+          <span class="game-round tag">{t.news.recapLine}</span>
+        </header>
+        <div class="paper players-sheet">
+          <PlayerList players={view.players} youId={view.youId} phase="revealed" />
+        </div>
+        <ChatPanel session={session} />
+      </section>
+      <section class="game-map news-stage">
+        <BreakingNews
+          phase={n.phase}
+          clock={() => session.serverNow.value}
+          listenAt={n.listenAt}
+          deadline={n.deadline}
+          nextAt={n.nextAt}
+          trackId={n.trackId}
+          myEntry={n.you.entry}
+          pendingLabel={session.newsPending.value}
+          othersAnswered={others.map((p) => ({ name: p.name, answered: n.answered[p.id] ?? false }))}
+          reveal={n.reveal ? { answer: n.reveal.answer, rows } : null}
+          onAnswer={(track) => void session.newsAnswer(track.id, `${track.title} — ${track.artist}`)}
+          onContinue={() => {
+            clickSound();
+            void session.newsReady();
+          }}
+          continueDisabled={n.you.ready || session.busy.value}
+          continueLabel={n.you.ready ? t.news.waitingReady : t.duel.ready}
+        />
+      </section>
+    </main>
+  );
+}
+
 // ── Résultats ──────────────────────────────────────────────────────────────
 
 function Results({ session, view }: { session: DuelSession; view: RoomView }) {
@@ -453,6 +518,32 @@ function Results({ session, view }: { session: DuelSession; view: RoomView }) {
                   </tr>
                 );
               })}
+              {view.newsResult && (
+                <tr>
+                  <th scope="row">
+                    {t.news.recapLine}
+                    <small>{view.newsResult.answer ? `${view.newsResult.answer.title} — ${view.newsResult.answer.artist}` : ''}</small>
+                  </th>
+                  <td>
+                    {formatInt(view.newsResult.entries[view.youId]?.score ?? 0)}
+                    <small>{t.news.verdict[view.newsResult.entries[view.youId]?.verdict ?? 'none']}</small>
+                  </td>
+                  <td>
+                    {(() => {
+                      const best = Object.entries(view.newsResult.entries).reduce<[string, number]>(
+                        (acc, [pid, e]) => ((e?.score ?? 0) > acc[1] ? [pid, e?.score ?? 0] : acc),
+                        ['', 0],
+                      );
+                      return (
+                        <>
+                          {formatInt(best[1])}
+                          <small>{best[0] ? nameOf(view, best[0]) : '—'}</small>
+                        </>
+                      );
+                    })()}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
 

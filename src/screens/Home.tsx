@@ -5,11 +5,14 @@ import { PinMarker } from '../pins/PinMarker';
 import { AvatarView } from '../profile/Avatar';
 import { clickSound, unlockAudio } from '../audio/sfx';
 import { t } from '../i18n/fr';
+import { useState } from 'preact/hooks';
+import { SoloSetup } from '../components/SoloSetup';
 import { save } from '../state/save';
 
 export function Home() {
   const { stats, album, profile } = save.value;
   const cards = Object.keys(album).length;
+  const [setup, setSetup] = useState(false);
 
   return (
     <main class="desk home">
@@ -44,7 +47,7 @@ export function Home() {
           onClick={() => {
             unlockAudio();
             clickSound();
-            startWorldGame();
+            setSetup(true);
           }}
         >
           <span class="home-card-title">{t.home.world}</span>
@@ -85,6 +88,15 @@ export function Home() {
           <span class="home-card-desc">{t.home.stats(stats.gamesPlayed, cards)}</span>
         </button>
       </nav>
+      {setup && (
+        <SoloSetup
+          onCancel={() => setSetup(false)}
+          onStart={() => {
+            unlockAudio(); // geste de l'utilisateur : la radio pourra démarrer
+            startWorldGame();
+          }}
+        />
+      )}
     </main>
   );
 }

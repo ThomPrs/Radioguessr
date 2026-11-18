@@ -1,6 +1,7 @@
 // Mode Multijoueur : constantes et types échangés entre le serveur (/api) et le navigateur.
 
 import type { Avatar } from './avatars.js';
+import type { NewsAnswer, TrackInfo } from './blindtest.js';
 import type { HintKind, Station } from './types.js';
 
 export const DUEL_ROUNDS = 5;
@@ -27,7 +28,26 @@ export const CHAT_MIN_INTERVAL_MS = 1_000; // anti-spam : un message par seconde
 /** Une couleur d'encre par joueur, attribuée dans l'ordre d'arrivée. */
 export const PLAYER_COLORS = ['#d9483b', '#2f5d8c', '#4f7a4a', '#c9822b', '#8a5a9e', '#2b8a8a', '#7a4a2c', '#c2577a'] as const;
 
-export type RoomStatus = 'waiting' | 'countdown' | 'playing' | 'finished';
+export type RoomStatus = 'waiting' | 'countdown' | 'playing' | 'news' | 'finished';
+
+export type NewsPhase = 'intro' | 'listen' | 'reveal';
+
+/** Breaking News vue par un joueur. */
+export interface NewsView {
+  phase: NewsPhase;
+  startAt: number;
+  /** Fin du jingle : l'extrait démarre. */
+  listenAt: number;
+  deadline: number;
+  /** Reprise automatique de la partie (pendant la révélation). */
+  nextAt: number | null;
+  trackId: number;
+  you: { answered: boolean; ready: boolean; entry: NewsAnswer | null };
+  /** Qui a répondu (sans la réponse) pendant l'écoute. */
+  answered: Record<string, boolean>;
+  /** À la révélation : le morceau et les réponses de chacun. */
+  reveal: { answer: TrackInfo | null; entries: Record<string, NewsAnswer | null> } | null;
+}
 
 /** Rapport d'un joueur sur une manche (stocké côté serveur). */
 export interface DuelEntry {
@@ -101,6 +121,12 @@ export interface RoomView {
   history: HistoryItem[];
   /** Messages plus récents que l'identifiant demandé (?chat=). */
   chat: ChatMessage[];
+  /** Option Breaking News choisie par l'hôte. */
+  breakingNews: boolean;
+  /** Breaking News en cours (statut « news »). */
+  news: NewsView | null;
+  /** Résultat de la Breaking News une fois passée (tableau des résultats). */
+  newsResult: { answer: TrackInfo | null; entries: Record<string, NewsAnswer | null> } | null;
 }
 
 export interface JoinResponse {
@@ -117,6 +143,9 @@ export type DuelAction =
   | { action: 'skip'; round: number; from: number }
   | { action: 'ready'; round: number }
   | { action: 'chat'; text: string }
+  | { action: 'options'; breakingNews: boolean }
+  | { action: 'news-answer'; guessId: number }
+  | { action: 'news-ready' }
   | { action: 'leave' };
 
 export type DuelErrorCode = 'not-found' | 'full' | 'started' | 'forbidden' | 'bad-request' | 'too-fast' | 'stations' | 'server';

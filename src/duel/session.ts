@@ -103,6 +103,7 @@ export class DuelSession {
     const prev = this.view.value;
     this.view.value = v;
     this.mergeChat(v.chat);
+    if (v.status !== 'news') this.newsPending.value = null;
     if (prev?.round?.index !== v.round?.index) this.pending.value = null;
 
     // Radio : on (re)syntonise quand la manche ou le flux de secours change.
@@ -113,8 +114,10 @@ export class DuelSession {
         this.tunedKey = key;
         void this.tune(r.index, r.candidate, r.streamUrl);
       }
-    } else if (v.status === 'finished' || v.status === 'waiting') {
+    } else if (v.status === 'finished' || v.status === 'waiting' || v.status === 'news') {
+      // Breaking News : la station se tait ; la manche suivante resyntonisera.
       if (this.tunedKey) getPlayer().stop();
+      stopStatic();
       this.tunedKey = null;
       this.radio.value = 'idle';
     }
@@ -227,6 +230,23 @@ export class DuelSession {
   async hint(kind: HintKind): Promise<void> {
     const r = this.view.value?.round;
     if (r) await this.send({ action: 'hint', round: r.index, kind });
+  }
+
+  /** Option Breaking News (hôte, avant le lancement). */
+  async setBreakingNews(on: boolean): Promise<void> {
+    await this.send({ action: 'options', breakingNews: on });
+  }
+
+  /** Réponse à la Breaking News : libellé affiché en attendant la vérification par le serveur. */
+  readonly newsPending = signal<string | null>(null);
+
+  async newsAnswer(trackId: number, label: string): Promise<void> {
+    this.newsPending.value = label;
+    await this.send({ action: 'news-answer', guessId: trackId });
+  }
+
+  async newsReady(): Promise<void> {
+    await this.send({ action: 'news-ready' });
   }
 
   /** Lancement de la partie (hôte uniquement). */

@@ -29,6 +29,8 @@ export interface Prefs {
   motion: 'system' | 'reduced' | 'full';
   /** Album : afficher les cases grisées des pays pas encore obtenus. */
   albumShowMissing: boolean;
+  /** Solo : Breaking News (blind test) activée. */
+  breakingNews: boolean;
 }
 
 export interface Profile {
@@ -72,7 +74,7 @@ export function defaultSave(): SaveData {
     pins: { [STARTER_PIN]: 1 },
     profile: { name: '', avatar: { ...DEFAULT_AVATAR }, pin: STARTER_PIN },
     stats: { gamesPlayed: 0, bestScore: 0, totalScore: 0, roundsPlayed: 0, bestDistanceKm: null, duels: { won: 0, lost: 0, draw: 0 } },
-    prefs: { radioVolume: 0.8, sfxVolume: 0.6, muted: false, motion: 'system', albumShowMissing: true },
+    prefs: { radioVolume: 0.8, sfxVolume: 0.6, muted: false, motion: 'system', albumShowMissing: true, breakingNews: true },
   };
 }
 
@@ -169,9 +171,10 @@ export function collectCard(card: QslCard): CollectOutcome {
   return result.outcome;
 }
 
-export function recordGame(rounds: readonly Round[]): void {
+/** `bonus` : points hors manches (Breaking News). */
+export function recordGame(rounds: readonly Round[], bonus = 0): void {
   const s = save.value.stats;
-  const total = rounds.reduce((sum, r) => sum + r.score, 0);
+  const total = rounds.reduce((sum, r) => sum + r.score, 0) + bonus;
   const best = rounds.reduce<number | null>(
     (b, r) => (r.distanceKm != null && (b == null || r.distanceKm < b) ? r.distanceKm : b),
     s.bestDistanceKm,

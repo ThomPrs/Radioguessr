@@ -12,6 +12,8 @@ import {
   ROUND_TIME_MS,
   type ChatMessage,
   type DuelEntry,
+  type NewsPhase,
+  type NewsView,
   type HistoryItem,
   type PlayerView,
   type RoomStatus,
@@ -19,6 +21,7 @@ import {
   type RoundView,
 } from '../../shared/duel.js';
 import { DEFAULT_AVATAR, type Avatar } from '../../shared/avatars.js';
+import { NEWS_INTRO_MS, NEWS_LISTEN_MS, NEWS_REVEAL_MS, type NewsAnswer, type TrackInfo } from '../../shared/blindtest.js';
 import { computeHints, localTimeLabel, utcOffsetLabel } from '../../shared/hints.js';
 import { ZONES } from '../../shared/timezones-data.js';
 import type { HintKind, Station } from '../../shared/types.js';
@@ -57,7 +60,30 @@ export const F = {
   chatSeq: 'chat:seq',
   chat: (n: number) => `chat:${n}`,
   chatAt: (pid: string) => `chatAt:${pid}`,
+  // Breaking News
+  newsOpt: 'opt:news',
+  newsAfter: 'news:after', // indice de la manche après laquelle elle tombe
+  newsTrack: 'news:track',
+  newsStart: 'news:start',
+  newsInfo: 'news:info', // morceau (titre, artiste, pochette), pour la révélation
+  newsAns: (pid: string) => `news:ans:${pid}`,
+  newsReady: (pid: string) => `news:ready:${pid}`,
 };
+
+/** Breaking News programmée pour cette partie (tirée au lancement), ou null. */
+export function newsPlan(snap: Snapshot): { after: number; trackId: number } | null {
+  const after = snap.raw[F.newsAfter];
+  const track = snap.raw[F.newsTrack];
+  return after != null && track ? { after: Number(after), trackId: Number(track) } : null;
+}
+
+export function newsAnswerOf(snap: Snapshot, pid: string): NewsAnswer | null {
+  return json<NewsAnswer>(snap.raw[F.newsAns(pid)]);
+}
+
+export function newsInfo(snap: Snapshot): TrackInfo | null {
+  return json<TrackInfo>(snap.raw[F.newsInfo]);
+}
 
 export interface Snapshot {
   meta: Meta;
@@ -147,8 +173,21 @@ export interface RoundTiming {
   nextAt: number | null;
 }
 
+export interface NewsTiming {
+  phase: NewsPhase;
+  start: number;
+  listenAt: number;
+  deadline: number;
+  revealAt: number | null;
+  nextAt: number | null;
+}
+
 export interface Derived {
   status: RoomStatus;
+  /** Breaking News en cours (statut « news »). */
+  news?: NewsTiming;
+  /** La Breaking News est passée (pour afficher son résultat). */
+  newsDone?: boolean;
   /** Manche courante (en écoute ou en révélation) ; null en attente ou terminé. */
   current: RoundTiming | null;
   /** Manches terminées ou révélées. */
@@ -169,8 +208,11 @@ export function derive(snap: Snapshot, now: number): Derived {
   if (now < start0) return { status: 'countdown', current: null, revealed: [], writes };
 
   const revealed: number[] = [];
+  let newsDone = false;
   for (let i = 0; i < DUEL_ROUNDS; i++) {
     let start = roundStart(snap, i);
+    // Manche démarrée : si une Breaking News la précédait, elle est terminée.
+    if (i > 0 && newsPlan(snap)?.after === i - 1 && snap.raw[F.newsStart]) newsDone = true;
     if (start == null) {
       // La manche précédente vient de se terminer : on la démarre (écriture idempotente).
       start = now;
@@ -183,17 +225,54 @@ export function derive(snap: Snapshot, now: number): Derived {
     const revealAt = allGuessed ? Math.min(Math.max(lastGuess, start), deadline) : now >= deadline ? deadline : null;
 
     if (revealAt == null || now < revealAt) {
-      return { status: 'playing', current: { index: i, start, deadline, revealAt: null, nextAt: null }, revealed, writes };
+      return { status: 'playing', current: { index: i, start, deadline, revealAt: null, nextAt: null }, revealed, writes, newsDone };
     }
 
     const nextAt = revealAt + REVEAL_TIME_MS;
     const allReady = everyoneDid(snap, now, (pid) => snap.raw[F.ready(i, pid)] === '1');
     revealed.push(i);
     if (!allReady && now < nextAt) {
-      return { status: 'playing', current: { index: i, start, deadline, revealAt, nextAt }, revealed, writes };
+      return { status: 'playing', current: { index: i, start, deadline, revealAt, nextAt }, revealed, writes, newsDone };
+    }
+
+    // Breaking News entre cette manche et la suivante.
+    const plan = newsPlan(snap);
+    if (plan && plan.after === i && i < DUEL_ROUNDS - 1) {
+      const n = deriveNews(snap, now, writes);
+      if (n) return { status: 'news', news: n, current: null, revealed, writes };
+      newsDone = true;
     }
   }
-  return { status: 'finished', current: null, revealed, writes };
+  return { status: 'finished', current: null, revealed, writes, newsDone };
+}
+
+/**
+ * Phase de la Breaking News (jingle → écoute → révélation), ou null si elle est terminée.
+ * Le début est écrit une seule fois (HSETNX) ; tout le reste se déduit des horodatages.
+ */
+function deriveNews(snap: Snapshot, now: number, writes: Derived['writes']): NewsTiming | null {
+  let start = snap.raw[F.newsStart] ? Number(snap.raw[F.newsStart]) : null;
+  if (start == null) {
+    start = now;
+    writes.push({ field: F.newsStart, value: String(now) });
+  }
+  const listenAt = start + NEWS_INTRO_MS;
+  const deadline = listenAt + NEWS_LISTEN_MS;
+  if (now < listenAt) return { phase: 'intro', start, listenAt, deadline, revealAt: null, nextAt: null };
+
+  const allAnswered = everyoneDid(snap, now, (pid) => newsAnswerOf(snap, pid) != null);
+  const lastAnswer = Math.max(0, ...snap.players.map((p) => newsAnswerOf(snap, p.id)?.at ?? 0));
+  const revealAt = allAnswered ? Math.min(Math.max(lastAnswer, listenAt), deadline) : now >= deadline ? deadline : null;
+  if (revealAt == null || now < revealAt) return { phase: 'listen', start, listenAt, deadline, revealAt: null, nextAt: null };
+
+  const nextAt = revealAt + NEWS_REVEAL_MS;
+  const allReady = everyoneDid(snap, now, (pid) => snap.raw[F.newsReady(pid)] === '1');
+  if (!allReady && now < nextAt) return { phase: 'reveal', start, listenAt, deadline, revealAt, nextAt };
+  return null;
+}
+
+function newsEntries(snap: Snapshot): Record<string, NewsAnswer | null> {
+  return Object.fromEntries(snap.players.map((p) => [p.id, newsAnswerOf(snap, p.id)]));
 }
 
 // ── Chat ───────────────────────────────────────────────────────────────────
@@ -232,6 +311,9 @@ export function buildView(snap: Snapshot, pid: string, now: number, chatSince = 
   const history: HistoryItem[] = d.revealed.map((i) => ({ index: i, station: activeStation(snap, i), entries: allEntries(snap, i) }));
   const totals: Record<string, number> = {};
   for (const h of history) for (const [id, e] of Object.entries(h.entries)) totals[id] = (totals[id] ?? 0) + (e?.score ?? 0);
+  // Points de la Breaking News (comptés dès la révélation)
+  const newsRevealed = d.newsDone || d.news?.phase === 'reveal';
+  if (newsRevealed) for (const p of snap.players) totals[p.id] = (totals[p.id] ?? 0) + (newsAnswerOf(snap, p.id)?.score ?? 0);
 
   const hostId = effectiveHost(snap, now);
   const cur = d.current;
@@ -290,5 +372,25 @@ export function buildView(snap: Snapshot, pid: string, now: number, chatSince = 
     round,
     history,
     chat: chatMessages(snap, chatSince),
+    breakingNews: snap.raw[F.newsOpt] === '1',
+    news: d.news ? buildNewsView(snap, pid, d.news) : null,
+    newsResult: d.newsDone ? { answer: newsInfo(snap), entries: newsEntries(snap) } : null,
+  };
+}
+
+function buildNewsView(snap: Snapshot, pid: string, n: NewsTiming): NewsView {
+  const plan = newsPlan(snap)!;
+  const mine = newsAnswerOf(snap, pid);
+  return {
+    phase: n.phase,
+    startAt: n.start,
+    listenAt: n.listenAt,
+    deadline: n.deadline,
+    nextAt: n.nextAt,
+    trackId: plan.trackId,
+    you: { answered: mine != null, ready: snap.raw[F.newsReady(pid)] === '1', entry: mine },
+    answered: Object.fromEntries(snap.players.map((p) => [p.id, newsAnswerOf(snap, p.id) != null])),
+    // Les réponses des autres restent secrètes jusqu'à la révélation.
+    reveal: n.phase === 'reveal' ? { answer: newsInfo(snap), entries: newsEntries(snap) } : null,
   };
 }

@@ -9,6 +9,7 @@ import type { HintKind, Round } from '../../shared/types';
 import { radioPaused } from '../audio/radio';
 import { clickSound, pinSound, typeBell } from '../audio/sfx';
 import { goHome, showRecap } from '../app';
+import { BreakingNews } from '../components/BreakingNews';
 import { EnvelopeReveal } from '../components/EnvelopeReveal';
 import { MapView } from '../components/MapView';
 import { RadioControls } from '../components/RadioControls';
@@ -32,6 +33,7 @@ export function GameScreen({ game }: { game: SoloGame }) {
   const used = game.usedHints.value;
   const round = game.lastRound.value;
   const index = game.roundIndex.value;
+  const news = game.news.value;
 
   useEffect(() => {
     const m = map.current;
@@ -48,7 +50,9 @@ export function GameScreen({ game }: { game: SoloGame }) {
     map.current?.reveal(r.station, r.guess);
     if (r.card && (r.qsl === 'new' || r.qsl === 'upgraded')) {
       await motionDelay(1400); // laisse le temps de voir l'arc sur la carte
-      setEnvelopeFor(r);
+      // Le joueur est déjà passé à la suite : l'enveloppe ne doit pas surgir par-dessus
+      // la manche suivante (ou la Breaking News). La carte reste dans le rapport et l'album.
+      if (game.phase.peek() === 'revealed' && game.roundIndex.peek() === r.index) setEnvelopeFor(r);
     }
   }
 
@@ -157,22 +161,46 @@ export function GameScreen({ game }: { game: SoloGame }) {
         )}
       </section>
 
+      {phase === 'news' && news ? (
+        <section class="game-map news-stage">
+          <BreakingNews
+            phase={news.phase}
+            clock={Date.now}
+            listenAt={news.listenAt}
+            deadline={news.deadline}
+            trackId={news.trackId}
+            myEntry={news.entry}
+            pendingLabel={news.pendingLabel}
+            reveal={
+              news.phase === 'reveal'
+                ? { answer: news.answer, rows: [{ id: 'me', name: t.duel.you, entry: news.entry, isYou: true }] }
+                : null
+            }
+            onAnswer={(track) => game.answerNews(track)}
+            onContinue={() => {
+              clickSound();
+              void game.continueAfterNews();
+            }}
+          />
+        </section>
+      ) : (
       <section class="game-map map-sheet">
-        <MapView
-          onReady={(m) => {
-            map.current = m;
-            m.setPinnable(game.phase.peek() === 'listening');
-          }}
-          onPin={(p) => {
-            if (game.phase.peek() !== 'listening') return;
-            pinSound();
-            game.setGuess(p);
-          }}
-        />
-      </section>
+          <MapView
+            onReady={(m) => {
+              map.current = m;
+              m.setPinnable(game.phase.peek() === 'listening');
+            }}
+            onPin={(p) => {
+              if (game.phase.peek() !== 'listening') return;
+              pinSound();
+              game.setGuess(p);
+            }}
+          />
+        </section>
+      )}
 
       {envelopeFor?.card && (envelopeFor.qsl === 'new' || envelopeFor.qsl === 'upgraded') && (
-        <EnvelopeReveal card={envelopeFor.card} outcome={envelopeFor.qsl} onClose={() => setEnvelopeFor(null)} />
+        phase !== 'news' && <EnvelopeReveal card={envelopeFor.card} outcome={envelopeFor.qsl} onClose={() => setEnvelopeFor(null)} />
       )}
     </main>
   );

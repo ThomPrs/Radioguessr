@@ -38,6 +38,15 @@ export function Recap({ game }: { game: SoloGame }) {
             </li>
           ))}
         </ol>
+        {game.newsResult.value?.answer && (
+          <p class="recap-news">
+            <span class="recap-news-tag">{t.news.recapLine}</span>
+            <span class="recap-news-song">
+              {game.newsResult.value.answer.title} — {game.newsResult.value.answer.artist}
+            </span>
+            <strong>{formatInt(game.newsResult.value.entry?.score ?? 0)}</strong>
+          </p>
+        )}
 
         <h2 class="recap-subtitle">{t.recap.cards}</h2>
         {rounds.some((r) => r.card && r.qsl !== 'kept') ? (

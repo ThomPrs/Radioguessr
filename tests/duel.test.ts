@@ -225,3 +225,100 @@ describe('apparence des joueurs', () => {
     ]);
   });
 });
+
+import { NEWS_INTRO_MS, NEWS_LISTEN_MS, NEWS_REVEAL_MS } from '../shared/blindtest';
+import { setMusicProvider, type TrackWithPreview } from '../api/_lib/music';
+
+describe('Breaking News', () => {
+  const T = (id: number, title: string, artist: string, artistId: number): TrackWithPreview => ({
+    id, title, titleShort: title, artist, artistId, cover: '', preview: `https://preview/${id}`,
+  });
+  const TRACKS: Record<number, TrackWithPreview> = {
+    100: T(100, 'Alors on danse (Radio Edit)', 'Stromae', 1),
+    101: T(101, 'Alors On Danse', 'Stromae', 1),
+    102: T(102, 'Papaoutai', 'Stromae', 1),
+    200: T(200, 'Footloose', 'Kenny Loggins', 2),
+  };
+  let store: MemoryStore;
+  beforeEach(() => {
+    store = new MemoryStore();
+    setStore(store);
+    setMusicProvider({ pool: async () => [100], track: async (id) => TRACKS[id] ?? null, search: async () => [] });
+  });
+
+  /** Salon à 2 avec l'option, Breaking News forcée après la manche 1 ; renvoie le début de la manche 1. */
+  async function setupNews(now = T0) {
+    const h = await createRoom('Alice', now, ROUNDS);
+    code = h.code;
+    alice = cred(h);
+    bob = cred(await joinRoom(code, 'Bob', NOBODY, now + 100));
+    await expect(act(code, bob, { action: 'options', breakingNews: true }, now + 200)).rejects.toMatchObject({ code: 'forbidden' });
+    const o = await act(code, alice, { action: 'options', breakingNews: true }, now + 300);
+    expect(o.view.breakingNews).toBe(true);
+    await act(code, alice, { action: 'start' }, now + 1000);
+    await store.hset(`room:${code}`, { 'news:after': '0' }); // déterministe pour le test
+    await expect(act(code, alice, { action: 'options', breakingNews: false }, now + 1500)).rejects.toMatchObject({ code: 'started' });
+    return now + 1000 + COUNTDOWN_MS;
+  }
+
+  async function finishRound0(t: number) {
+    await act(code, alice, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 1000);
+    await act(code, bob, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 1000);
+    await act(code, alice, { action: 'ready', round: 0 }, t + 2000);
+    return (await act(code, bob, { action: 'ready', round: 0 }, t + 2000)).view;
+  }
+
+  it('flash → écoute → réponses → révélation → manche suivante, points ajoutés', async () => {
+    const t = await setupNews();
+    const v = await finishRound0(t);
+    expect(v.status).toBe('news');
+    expect(v.news).toMatchObject({ phase: 'intro', trackId: 100, reveal: null });
+    const listenAt = v.news!.listenAt;
+    await expect(act(code, alice, { action: 'news-answer', guessId: 101 }, listenAt - 500)).rejects.toMatchObject({ code: 'bad-request' });
+
+    const a = await act(code, alice, { action: 'news-answer', guessId: 101 }, listenAt + 3000); // bonne chanson, autre version
+    expect(a.view.news).toMatchObject({ phase: 'listen', you: { answered: true }, reveal: null });
+    expect(a.view.news!.answered[bob.playerId!]).toBe(false);
+    await act(code, alice, { action: 'news-answer', guessId: 200 }, listenAt + 4000); // seconde réponse ignorée
+
+    const b = await act(code, bob, { action: 'news-answer', guessId: 102 }, listenAt + 6000); // bon artiste seulement
+    expect(b.view.news?.phase).toBe('reveal');
+    expect(b.view.news!.reveal!.answer?.title).toBe('Alors on danse (Radio Edit)');
+    const entries = b.view.news!.reveal!.entries;
+    expect(entries[alice.playerId!]).toMatchObject({ verdict: 'song', score: 1450 });
+    expect(entries[bob.playerId!]).toMatchObject({ verdict: 'artist', score: 400, guessLabel: 'Papaoutai — Stromae' });
+    const totalAlice = b.view.players.find((p) => p.name === 'Alice')!.total;
+
+    await act(code, alice, { action: 'news-ready' }, listenAt + 7000);
+    const next = await act(code, bob, { action: 'news-ready' }, listenAt + 7000);
+    expect(next.view.status).toBe('playing');
+    expect(next.view.round).toMatchObject({ index: 1, phase: 'listening' });
+    expect(next.view.newsResult?.entries[alice.playerId!]?.score).toBe(1450);
+    expect(next.view.players.find((p) => p.name === 'Alice')!.total).toBe(totalAlice); // points conservés
+  });
+
+  it('sans réponse : révélation au bout de 30 s, puis reprise automatique', async () => {
+    const t = await setupNews();
+    const v = await finishRound0(t);
+    const listenAt = v.news!.listenAt;
+    expect((await getRoom(code, alice, listenAt + NEWS_LISTEN_MS - 100)).news?.phase).toBe('listen');
+    const r = await getRoom(code, alice, listenAt + NEWS_LISTEN_MS + 10);
+    expect(r.news?.phase).toBe('reveal');
+    expect(r.news!.reveal!.answer?.artist).toBe('Stromae'); // morceau récupéré même sans réponse
+    const after = await getRoom(code, alice, listenAt + NEWS_LISTEN_MS + NEWS_REVEAL_MS + 20);
+    expect(after.round).toMatchObject({ index: 1, phase: 'listening' });
+    expect(NEWS_INTRO_MS).toBeGreaterThan(0);
+  });
+
+  it('option désactivée : pas de Breaking News', async () => {
+    const h = await createRoom('Alice', T0, ROUNDS);
+    code = h.code;
+    alice = cred(h);
+    bob = cred(await joinRoom(code, 'Bob', NOBODY, T0 + 100));
+    await act(code, alice, { action: 'start' }, T0 + 1000);
+    const t = T0 + 1000 + COUNTDOWN_MS;
+    const v = await finishRound0(t);
+    expect(v.status).toBe('playing');
+    expect(v.round?.index).toBe(1);
+  });
+});

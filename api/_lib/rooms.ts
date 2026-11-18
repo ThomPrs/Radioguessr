@@ -22,6 +22,8 @@ import {
   type RoomView,
 } from '../../shared/duel.js';
 import { cleanLook, type PlayerLook } from '../../shared/avatars.js';
+import { pickNewsSlot, type NewsAnswer } from '../../shared/blindtest.js';
+import { checkGuess, music, pickTrack } from './music.js';
 import { fetchCountries, fetchCountryStations, pickCountry } from '../../shared/radio-browser.js';
 import { haversineKm, roundScore } from '../../shared/scoring.js';
 import type { Continent, HintKind, Station } from '../../shared/types.js';
@@ -36,6 +38,9 @@ import {
   hintValue,
   hintsOf,
   isGone,
+  newsAnswerOf,
+  newsInfo,
+  newsPlan,
   parseSnapshot,
   playerById,
   roundStart,
@@ -143,6 +148,15 @@ async function loadAdvanced(store: Store, code: string, now: number): Promise<Sn
   let snap = await load(store, code);
   for (let pass = 0; pass < 3; pass++) {
     const d = derive(snap, now);
+    // Révélation de la Breaking News : titre, artiste et pochette du morceau (une seule fois).
+    const plan = newsPlan(snap);
+    if (plan && !newsInfo(snap) && (d.newsDone || d.news?.phase === 'reveal')) {
+      const t = await music().track(plan.trackId).catch(() => null);
+      if (t) {
+        const { preview: _p, ...info } = t;
+        d.writes.push({ field: F.newsInfo, value: JSON.stringify(info) });
+      }
+    }
     if (d.writes.length === 0) return snap;
     for (const w of d.writes) await store.hsetnx(key(code), w.field, w.value);
     snap = await load(store, code);
@@ -249,9 +263,44 @@ export async function act(code: string, cred: Credentials, body: DuelAction, now
       if (effectiveHost(snap, now) !== pid) throw new DuelError('forbidden', 403, 'Seul l’hôte peut lancer la partie');
       const present = snap.players.filter((p) => !isGone(snap, p.id, now)).length;
       if (present < MIN_PLAYERS_TO_START) throw new DuelError('bad-request', 409, 'Il faut au moins deux joueurs');
+      // Breaking News : manche et morceau tirés au lancement (si Deezer ne répond pas, on joue sans).
+      if (snap.raw[F.newsOpt] === '1' && !snap.raw[F.newsTrack]) {
+        const trackId = await pickTrack().catch(() => null);
+        if (trackId) await store.hset(k, { [F.newsAfter]: String(pickNewsSlot()), [F.newsTrack]: String(trackId) });
+      }
       if (await store.hsetnx(k, F.start(0), String(now + COUNTDOWN_MS))) {
         await postChat(store, code, systemMessage(`${me.name} lance la partie. Bonne écoute !`, now));
       }
+      break;
+    }
+    case 'options': {
+      if (d.status !== 'waiting') throw new DuelError('started', 409, 'Partie déjà lancée');
+      if (effectiveHost(snap, now) !== pid) throw new DuelError('forbidden', 403, 'Seul l’hôte règle les options');
+      await store.hset(k, { [F.newsOpt]: body.breakingNews ? '1' : '0' });
+      break;
+    }
+    case 'news-answer': {
+      const n = d.news;
+      if (d.status !== 'news' || n?.phase !== 'listen' || now > n.deadline + GRACE_MS) throw new DuelError('bad-request', 409, 'Breaking News close');
+      if (newsAnswerOf(snap, pid)) break; // une seule réponse
+      const guessId = Number(body.guessId);
+      if (!Number.isInteger(guessId) || guessId <= 0) throw new DuelError('bad-request', 400, 'Réponse invalide');
+      const plan = newsPlan(snap)!;
+      const res = await checkGuess(plan.trackId, guessId, Math.max(0, now - n.listenAt));
+      const at = Math.min(now, n.deadline);
+      const entry: NewsAnswer = {
+        guessId,
+        guessLabel: res.guess ? `${res.guess.title} — ${res.guess.artist}` : '',
+        at,
+        verdict: res.verdict,
+        score: res.score,
+      };
+      await store.hsetnx(k, F.newsAns(pid), JSON.stringify(entry));
+      await store.hsetnx(k, F.newsInfo, JSON.stringify(res.answer));
+      break;
+    }
+    case 'news-ready': {
+      if (d.news?.phase === 'reveal') await store.hset(k, { [F.newsReady(pid)]: '1' });
       break;
     }
     case 'guess': {

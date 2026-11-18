@@ -250,6 +250,61 @@ export function clickSound(): void {
   o.stop(t + 0.04);
 }
 
+/**
+ * Jingle de flash spécial (≈ 3 s) : roulement de caisse claire puis fanfare de cuivres
+ * (dents de scie filtrées), façon « Breaking News » de radio.
+ */
+export function newsJingle(): void {
+  const a = audio();
+  if (!a) return;
+  const { ctx: c, out } = a;
+  const t0 = c.currentTime + 0.05;
+  // Roulement : rafales de bruit rapprochées et crescendo
+  for (let k = 0; k < 14; k++) {
+    const at = t0 + k * 0.045;
+    const n = noiseSource(c);
+    const bp = c.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 1800;
+    n.connect(bp).connect(envGain(c, 0.08 + k * 0.015, 0.002, 0.04, at)).connect(out);
+    n.start(at, Math.random());
+    n.stop(at + 0.06);
+  }
+  // Fanfare : sol – do – mi – sol (tenu), deux voix
+  const notes: [number, number, number][] = [
+    [392, 0.7, 0.16],
+    [523.25, 0.88, 0.16],
+    [659.25, 1.06, 0.16],
+    [783.99, 1.24, 1.3],
+  ];
+  for (const [f, start, dur] of notes) {
+    for (const [mult, type, vol] of [
+      [1, 'sawtooth', 0.12],
+      [1.5, 'triangle', 0.06],
+    ] as const) {
+      const o = c.createOscillator();
+      o.type = type;
+      o.frequency.value = f * mult;
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(900, t0 + start);
+      lp.frequency.linearRampToValueAtTime(2600, t0 + start + 0.08);
+      const g = envGain(c, vol, 0.02, dur, t0 + start);
+      o.connect(lp).connect(g).connect(out);
+      o.start(t0 + start);
+      o.stop(t0 + start + dur + 0.1);
+    }
+  }
+  // Coup de cymbale final
+  const cym = noiseSource(c);
+  const hp = c.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 6000;
+  cym.connect(hp).connect(envGain(c, 0.18, 0.005, 1.4, t0 + 1.24)).connect(out);
+  cym.start(t0 + 1.24);
+  cym.stop(t0 + 2.8);
+}
+
 /** À appeler sur un premier geste pour déverrouiller l'audio. */
 export function unlockAudio(): void {
   audio();

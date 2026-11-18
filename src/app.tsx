@@ -4,6 +4,7 @@ import { signal } from '@preact/signals';
 import { DuelSession } from './duel/session';
 import { tabIdentity, type Identity } from './duel/client';
 import { SoloGame } from './game/solo';
+import { save } from './state/save';
 import { t } from './i18n/fr';
 import { Album } from './screens/Album';
 import { DuelLobby } from './screens/DuelLobby';
@@ -40,7 +41,8 @@ const screen = signal<Screen>(initialScreen());
 export function startWorldGame(): void {
   const current = screen.value;
   if (current.name === 'game') current.game.dispose();
-  const game = new SoloGame();
+  // Options de la partie : mémorisées dans les préférences (fiche « Options de la partie »).
+  const game = new SoloGame({ breakingNews: save.peek().prefs.breakingNews });
   screen.value = { name: 'game', game };
   void game.start(); // appelé depuis le clic : l'autoplay est autorisé
 }
