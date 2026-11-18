@@ -3,7 +3,11 @@
 // Le flux n'est PAS routé dans Web Audio : sans en-têtes CORS (cas fréquent),
 // createMediaElementSource rendrait le son muet. Le volume passe par audio.volume.
 
+import { signal } from '@preact/signals';
 import { t } from '../i18n/fr';
+
+/** Vrai quand le joueur a mis la radio en pause (bouton ou touche multimédia). */
+export const radioPaused = signal(false);
 
 export const TUNE_TIMEOUT_MS = 8000;
 
@@ -12,12 +16,44 @@ export type TuneResult = 'playing' | 'failed' | 'cancelled';
 export class RadioPlayer {
   private readonly audio: HTMLAudioElement;
   private attempt = 0;
+  /** Flux de la station captée, pour reprendre le direct après une pause. */
+  private currentUrl: string | null = null;
 
   constructor() {
     this.audio = new Audio();
     this.audio.preload = 'none';
     // Pas de crossOrigin : on ne lit jamais les échantillons, et ça évite les refus CORS.
     this.audio.setAttribute('aria-hidden', 'true');
+    if ('mediaSession' in navigator) {
+      // Les touches multimédia du clavier / du téléphone passent par nos propres méthodes.
+      navigator.mediaSession.setActionHandler('pause', () => this.pause());
+      navigator.mediaSession.setActionHandler('play', () => void this.resume());
+    }
+  }
+
+  /** Met en pause (coupe le flux réseau). */
+  pause(): void {
+    if (!this.currentUrl || radioPaused.value) return;
+    this.audio.pause();
+    radioPaused.value = true;
+  }
+
+  /** Reprend le direct (recharge le flux plutôt que de rejouer le tampon périmé). */
+  async resume(): Promise<void> {
+    if (!this.currentUrl || !radioPaused.value) return;
+    radioPaused.value = false;
+    this.audio.src = this.currentUrl;
+    this.audio.load();
+    try {
+      await this.audio.play();
+    } catch {
+      radioPaused.value = true;
+    }
+  }
+
+  togglePause(): void {
+    if (radioPaused.value) void this.resume();
+    else this.pause();
   }
 
   get volume(): number {
@@ -40,6 +76,8 @@ export class RadioPlayer {
   tune(streamUrl: string, timeoutMs = TUNE_TIMEOUT_MS): Promise<TuneResult> {
     const id = ++this.attempt;
     const audio = this.audio;
+    this.currentUrl = null;
+    radioPaused.value = false;
     this.hideIdentity();
 
     return new Promise<TuneResult>((resolve) => {
@@ -54,7 +92,10 @@ export class RadioPlayer {
         if (result === 'failed' && this.attempt === id) this.reset();
         resolve(result);
       };
-      const onPlaying = () => finish(this.attempt === id ? 'playing' : 'cancelled');
+      const onPlaying = () => {
+        if (this.attempt === id) this.currentUrl = streamUrl;
+        finish(this.attempt === id ? 'playing' : 'cancelled');
+      };
       const onError = () => finish(this.attempt === id ? 'failed' : 'cancelled');
       const timer = setTimeout(() => finish('failed'), timeoutMs);
       const watchdog = setInterval(() => {
@@ -75,6 +116,8 @@ export class RadioPlayer {
 
   stop(): void {
     this.attempt++;
+    this.currentUrl = null;
+    radioPaused.value = false;
     this.reset();
   }
 

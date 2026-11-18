@@ -6,11 +6,12 @@ import { localTimeLabel, utcOffsetLabel } from '../../shared/hints';
 import { shortStationName } from '../../shared/qsl';
 import { HINT_COST, ROUNDS_PER_GAME, hintsCost } from '../../shared/scoring';
 import type { HintKind, Round } from '../../shared/types';
+import { radioPaused } from '../audio/radio';
 import { clickSound, pinSound, typeBell } from '../audio/sfx';
 import { goHome, showRecap } from '../app';
-import { AudioToggle } from '../components/AudioToggle';
 import { EnvelopeReveal } from '../components/EnvelopeReveal';
 import { MapView } from '../components/MapView';
+import { RadioControls } from '../components/RadioControls';
 import { RadioSet } from '../components/RadioSet';
 import { Typewriter } from '../components/Typewriter';
 import { formatInt, formatKm } from '../format';
@@ -70,7 +71,7 @@ export function GameScreen({ game }: { game: SoloGame }) {
     return `${utcOffsetLabel(hints.timezone)} · ${t.hints.localTime(localTimeLabel(hints.timezone))}`;
   }
 
-  const radioState = phase === 'tuning' ? 'tuning' : phase === 'error' ? 'off' : 'on';
+  const radioState = phase === 'tuning' ? 'tuning' : phase === 'error' || radioPaused.value ? 'off' : 'on';
   const radioLabel =
     phase === 'tuning'
       ? t.radio.searching
@@ -88,13 +89,13 @@ export function GameScreen({ game }: { game: SoloGame }) {
           <span class="game-total">
             {t.round.total} <strong>{formatInt(game.totalScore.value)}</strong>
           </span>
-          <AudioToggle />
           <button class="link-button on-desk" onClick={quit}>
             {t.round.quit}
           </button>
         </header>
 
         <RadioSet state={radioState} dial={game.dial.value} label={radioLabel} />
+        <RadioControls canPause={phase === 'listening' || phase === 'revealed'} />
 
         <p class="desk-note" aria-live="polite">
           {phase === 'tuning' && t.radio.searchingLong}

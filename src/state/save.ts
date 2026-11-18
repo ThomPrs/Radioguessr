@@ -22,6 +22,8 @@ export interface Prefs {
   sfxVolume: number; // 0..1
   muted: boolean;
   motion: 'system' | 'reduced' | 'full';
+  /** Album : afficher les cases grisées des pays pas encore obtenus. */
+  albumShowMissing: boolean;
 }
 
 export interface SaveV1 {
@@ -38,7 +40,7 @@ export function defaultSave(): SaveData {
     version: 1,
     album: {},
     stats: { gamesPlayed: 0, bestScore: 0, totalScore: 0, roundsPlayed: 0, bestDistanceKm: null, duels: { won: 0, lost: 0, draw: 0 } },
-    prefs: { radioVolume: 0.8, sfxVolume: 0.6, muted: false, motion: 'system' },
+    prefs: { radioVolume: 0.8, sfxVolume: 0.6, muted: false, motion: 'system', albumShowMissing: true },
   };
 }
 

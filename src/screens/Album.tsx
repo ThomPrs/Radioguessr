@@ -9,7 +9,7 @@ import type { Continent } from '../../shared/types';
 import { goHome } from '../app';
 import { t } from '../i18n/fr';
 import { QslCardView } from '../qsl/QslCardView';
-import { save } from '../state/save';
+import { save, updatePrefs } from '../state/save';
 
 const FILTERS: Continent[] = ['AF', 'NA', 'SA', 'AS', 'EU', 'OC'];
 
@@ -37,7 +37,8 @@ export function Album() {
   const [filter, setFilter] = useState<Continent | 'all'>('all');
   const [open, setOpen] = useState<QslCard | null>(null);
   const slots = useMemo(() => buildSlots(album), [album]);
-  const visible = filter === 'all' ? slots : slots.filter((s) => s.continent === filter);
+  const showMissing = save.value.prefs.albumShowMissing;
+  const visible = slots.filter((s) => (filter === 'all' || s.continent === filter) && (showMissing || album[s.code]));
   const owned = slots.filter((s) => album[s.code]).length;
 
   useEffect(() => {
@@ -56,6 +57,15 @@ export function Album() {
         </button>
         <h1>{t.album.title}</h1>
         <span class="album-count">{t.album.count(owned, slots.length)}</span>
+        <label class="album-toggle">
+          <input
+            type="checkbox"
+            role="switch"
+            checked={showMissing}
+            onChange={(e) => updatePrefs({ albumShowMissing: e.currentTarget.checked })}
+          />
+          <span>{t.album.showMissing}</span>
+        </label>
       </header>
 
       <nav class="album-filters" aria-label="Continents">

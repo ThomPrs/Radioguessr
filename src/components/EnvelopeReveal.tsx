@@ -62,12 +62,17 @@ export function EnvelopeReveal({ card, outcome, onClose }: Props) {
       <div class={`env-stage step-${step}`}>
         <div class="env-back" />
         <div class="env-card">
-          <QslCardView card={card} flippable={step === 'stamped'} />
-          <div class="env-stamp" style={{ '--rot': `${rot}deg` } as Record<string, string>} aria-hidden="true">
-            <span>QSL</span>
-            <strong>{card.sinpo}</strong>
-            <span>{t.envelope.confirmed}</span>
-          </div>
+          <QslCardView
+            card={card}
+            flippable={step === 'stamped'}
+            frontOverlay={
+              <div class="env-stamp" style={{ '--rot': `${rot}deg` } as Record<string, string>} aria-hidden="true">
+                <span>QSL</span>
+                <strong>{card.sinpo}</strong>
+                <span>{t.envelope.confirmed}</span>
+              </div>
+            }
+          />
         </div>
         <div class="env-front">
           <span class="env-airmail">{t.envelope.airmail}</span>

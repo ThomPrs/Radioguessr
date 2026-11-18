@@ -80,6 +80,9 @@ export const t = {
     file: 'Ranger dans l’album',
   },
   audio: {
+    controls: 'Commandes du poste',
+    play: 'Reprendre l’écoute',
+    pause: 'Mettre en pause',
     mute: 'Couper le son',
     unmute: 'Rétablir le son',
     radioVolume: 'Volume de la radio',
@@ -113,6 +116,7 @@ export const t = {
     back: 'Accueil',
     close: 'Fermer',
     flipHint: 'Cliquez sur la carte pour la retourner.',
+    showMissing: 'Afficher les pays manquants',
   },
   recap: {
     cards: 'Cartes QSL reçues',
