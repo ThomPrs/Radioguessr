@@ -16,8 +16,8 @@ export function Recap({ game }: { game: SoloGame }) {
   const verdict = t.recap.verdicts.find(([min]) => total >= min)?.[1] ?? '';
 
   return (
-    <main class="game-layout">
-      <section class="game-panel">
+    <main class="desk game-layout">
+      <section class="game-panel paper recap-sheet">
         <h1 class="recap-title">{t.recap.title}</h1>
         <p class="recap-total">
           <span class="recap-total-value">{formatInt(total)}</span>{' '}
@@ -60,7 +60,7 @@ export function Recap({ game }: { game: SoloGame }) {
         </div>
       </section>
 
-      <section class="game-map">
+      <section class="game-map map-sheet">
         <MapView
           onReady={(m) => m.showSummary(rounds.map((r) => ({ station: r.station, guess: r.guess })))}
         />

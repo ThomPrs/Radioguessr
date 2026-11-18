@@ -1,22 +1,30 @@
-// Écran de partie : écoute, fiches d'indices, punaise, rapport, révélation.
+// Écran de partie : bureau vu de dessus, poste radio, fiches d'indices, carte, rapport d'écoute.
 
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { countryNameFr } from '../../shared/countries';
 import { localTimeLabel, utcOffsetLabel } from '../../shared/hints';
+import { shortStationName } from '../../shared/qsl';
 import { HINT_COST, ROUNDS_PER_GAME, hintsCost } from '../../shared/scoring';
-import type { HintKind } from '../../shared/types';
+import type { HintKind, Round } from '../../shared/types';
+import { clickSound, pinSound, typeBell } from '../audio/sfx';
 import { goHome, showRecap } from '../app';
+import { AudioToggle } from '../components/AudioToggle';
+import { EnvelopeReveal } from '../components/EnvelopeReveal';
 import { MapView } from '../components/MapView';
+import { RadioSet } from '../components/RadioSet';
+import { Typewriter } from '../components/Typewriter';
 import { formatInt, formatKm } from '../format';
 import type { SoloGame } from '../game/solo';
 import { t } from '../i18n/fr';
 import type { InkMap } from '../map/ink-map';
 import { QslCardView } from '../qsl/QslCardView';
+import { motionDelay } from '../state/prefs';
 
 const HINT_ORDER: HintKind[] = ['language', 'continent', 'timezone'];
 
 export function GameScreen({ game }: { game: SoloGame }) {
   const map = useRef<InkMap | null>(null);
+  const [envelopeFor, setEnvelopeFor] = useState<Round | null>(null);
   const phase = game.phase.value;
   const guess = game.guess.value;
   const hints = game.hints.value;
@@ -24,7 +32,6 @@ export function GameScreen({ game }: { game: SoloGame }) {
   const round = game.lastRound.value;
   const index = game.roundIndex.value;
 
-  // Synchronise la carte avec la phase de jeu.
   useEffect(() => {
     const m = map.current;
     if (!m) return;
@@ -34,18 +41,21 @@ export function GameScreen({ game }: { game: SoloGame }) {
 
   useEffect(() => () => game.dispose(), [game]);
 
-  function submit() {
+  async function submit() {
     const r = game.submit();
-    if (r?.guess) map.current?.reveal(r.station, r.guess);
+    if (!r?.guess) return;
+    map.current?.reveal(r.station, r.guess);
+    if (r.card && (r.qsl === 'new' || r.qsl === 'upgraded')) {
+      await motionDelay(1400); // laisse le temps de voir l'arc sur la carte
+      setEnvelopeFor(r);
+    }
   }
 
   function next() {
-    if (game.isLastRound) {
-      void game.next();
-      showRecap(game);
-    } else {
-      void game.next();
-    }
+    clickSound();
+    const last = game.isLastRound;
+    void game.next();
+    if (last) showRecap(game);
   }
 
   function quit() {
@@ -57,54 +67,70 @@ export function GameScreen({ game }: { game: SoloGame }) {
     if (kind === 'language') return hints.language ?? t.hints.unknown;
     if (kind === 'continent') return hints.continent;
     if (!hints.timezone) return t.hints.unknown;
-    return `${utcOffsetLabel(hints.timezone)} — ${t.hints.localTime(localTimeLabel(hints.timezone))}`;
+    return `${utcOffsetLabel(hints.timezone)} · ${t.hints.localTime(localTimeLabel(hints.timezone))}`;
   }
 
-  const revealed = phase === 'revealed' && round;
+  const radioState = phase === 'tuning' ? 'tuning' : phase === 'error' ? 'off' : 'on';
+  const radioLabel =
+    phase === 'tuning'
+      ? t.radio.searching
+      : phase === 'revealed' && round
+        ? shortStationName(round.station.name, 22)
+        : phase === 'error'
+          ? '—'
+          : t.radio.unknownStation;
 
   return (
-    <main class="game-layout">
+    <main class="desk game-layout">
       <section class="game-panel">
         <header class="game-header">
-          <span class="game-round">{t.round.label(index + 1, ROUNDS_PER_GAME)}</span>
+          <span class="game-round tag">{t.round.label(index + 1, ROUNDS_PER_GAME)}</span>
           <span class="game-total">
-            {t.round.total} : <strong>{formatInt(game.totalScore.value)}</strong>
+            {t.round.total} <strong>{formatInt(game.totalScore.value)}</strong>
           </span>
-          <button class="link-button" onClick={quit}>
+          <AudioToggle />
+          <button class="link-button on-desk" onClick={quit}>
             {t.round.quit}
           </button>
         </header>
 
-        <div class={`radio-box radio-${phase}`} aria-live="polite">
-          {phase === 'tuning' && t.radio.searching}
+        <RadioSet state={radioState} dial={game.dial.value} label={radioLabel} />
+
+        <p class="desk-note" aria-live="polite">
+          {phase === 'tuning' && t.radio.searchingLong}
           {phase === 'listening' && (guess ? t.map.movePin : t.map.placePin)}
-          {phase === 'revealed' && t.radio.captured}
           {phase === 'error' && (
             <>
               {game.error.value === 'no-station' ? t.radio.noStation : t.radio.unreachable}{' '}
-              <button onClick={() => void game.retry()}>{t.radio.retry}</button>
+              <button class="small-button" onClick={() => void game.retry()}>
+                {t.radio.retry}
+              </button>
             </>
           )}
-        </div>
+        </p>
 
         {(phase === 'listening' || phase === 'revealed') && (
-          <div class="hint-cards">
-            <h2 class="hint-title">{t.hints.title}</h2>
-            {HINT_ORDER.map((kind) => {
+          <div class="hint-cards" role="group" aria-label={t.hints.title}>
+            {HINT_ORDER.map((kind, i) => {
               const isUsed = used.includes(kind);
-              const unavailable =
-                (kind === 'language' && !hints?.language) || (kind === 'timezone' && !hints?.timezone);
+              const unavailable = (kind === 'language' && !hints?.language) || (kind === 'timezone' && !hints?.timezone);
               return (
                 <button
                   key={kind}
                   class={`hint-card${isUsed ? ' is-used' : ''}`}
+                  style={{ '--tilt': `${(i - 1) * 1.2}deg` } as Record<string, string>}
                   disabled={phase !== 'listening' || isUsed || unavailable}
-                  onClick={() => game.useHint(kind)}
+                  onClick={() => {
+                    clickSound();
+                    game.useHint(kind);
+                  }}
                 >
                   <span class="hint-label">{t.hints[kind]}</span>
-                  <span class="hint-value">
-                    {isUsed ? hintValue(kind) : unavailable ? t.hints.unknown : t.hints.cost(HINT_COST[kind])}
-                  </span>
+                  {isUsed ? (
+                    <Typewriter class="hint-value" text={hintValue(kind)} speed={28} />
+                  ) : (
+                    <span class="hint-cost">{unavailable ? t.hints.unknown : t.hints.cost(HINT_COST[kind])}</span>
+                  )}
                 </button>
               );
             })}
@@ -112,55 +138,82 @@ export function GameScreen({ game }: { game: SoloGame }) {
         )}
 
         {phase === 'listening' && (
-          <button class="primary-action" onClick={submit} disabled={!guess}>
+          <button class="stamp-button" onClick={() => void submit()} disabled={!guess}>
             {t.round.submit}
           </button>
         )}
 
-        {revealed && (
-          <div class="round-result">
-            <dl>
-              <dt>{t.round.stationWas}</dt>
-              <dd class="round-station">{round.station.name}</dd>
-              <dd>
-                {round.station.state ? `${round.station.state}, ` : ''}
-                {countryNameFr(round.station.countryCode)}
-              </dd>
-              <dt>{t.round.distance}</dt>
-              <dd>{round.distanceKm != null ? formatKm(round.distanceKm) : '—'}</dd>
-              {round.hints.length > 0 && (
-                <>
-                  <dt>{t.round.hintsPenalty}</dt>
-                  <dd>−{formatInt(hintsCost(round.hints))}</dd>
-                </>
-              )}
-              <dt>{t.round.points}</dt>
-              <dd class="round-points">{formatInt(round.score)}</dd>
-            </dl>
-            {round.card && round.qsl ? (
-              <div class="round-qsl">
-                <p class={`round-qsl-msg is-${round.qsl}`}>{t.qsl.received[round.qsl]}</p>
-                <QslCardView card={round.card} />
-              </div>
-            ) : (
-              <p class="round-qsl-none">{t.qsl.none}</p>
-            )}
-            <button class="primary-action" onClick={next}>
-              {game.isLastRound ? t.round.finish : t.round.next}
-            </button>
-          </div>
+        {phase === 'revealed' && round && <ReportSlip round={round} />}
+
+        {phase === 'revealed' && round && (
+          <button class="primary-action" onClick={next}>
+            {game.isLastRound ? t.round.finish : t.round.next}
+          </button>
         )}
       </section>
 
-      <section class="game-map">
+      <section class="game-map map-sheet">
         <MapView
           onReady={(m) => {
             map.current = m;
             m.setPinnable(game.phase.peek() === 'listening');
           }}
-          onPin={(p) => game.setGuess(p)}
+          onPin={(p) => {
+            if (game.phase.peek() !== 'listening') return;
+            pinSound();
+            game.setGuess(p);
+          }}
         />
       </section>
+
+      {envelopeFor?.card && (envelopeFor.qsl === 'new' || envelopeFor.qsl === 'upgraded') && (
+        <EnvelopeReveal card={envelopeFor.card} outcome={envelopeFor.qsl} onClose={() => setEnvelopeFor(null)} />
+      )}
     </main>
+  );
+}
+
+/** Fiche « rapport d'écoute » tapée à la machine après la révélation. */
+function ReportSlip({ round }: { round: Round }) {
+  const lines: [string, string][] = [
+    [t.round.stationWas, shortStationName(round.station.name, 40)],
+    [t.qsl.location, [round.station.state, countryNameFr(round.station.countryCode)].filter(Boolean).join(', ')],
+    [t.round.distance, round.distanceKm != null ? formatKm(round.distanceKm) : '—'],
+  ];
+  if (round.hints.length > 0) lines.push([t.round.hintsPenalty, `−${formatInt(hintsCost(round.hints))}`]);
+
+  // Chaque ligne commence quand la précédente est finie (≈ 30 ms par caractère).
+  let delay = 200;
+  const delays = lines.map(([, v]) => {
+    const d = delay;
+    delay += v.length * 30 + 150;
+    return d;
+  });
+
+  return (
+    <article class="report-slip" key={round.index}>
+      <h2 class="report-title">{t.round.report}</h2>
+      <dl>
+        {lines.map(([label, value], i) => (
+          <div key={label} class="report-line">
+            <dt>{label}</dt>
+            <dd>
+              <Typewriter text={value} delay={delays[i]} speed={30} />
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p class="report-points">
+        <Typewriter text={`${formatInt(round.score)} pts`} delay={delay} speed={60} onDone={typeBell} />
+      </p>
+      {round.card && round.qsl ? (
+        <div class="report-card">
+          <p class={`report-qsl is-${round.qsl}`}>{t.qsl.received[round.qsl]}</p>
+          <QslCardView card={round.card} />
+        </div>
+      ) : (
+        <p class="report-qsl-none">{t.qsl.none}</p>
+      )}
+    </article>
   );
 }

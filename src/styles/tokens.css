@@ -15,3 +15,10 @@
   --font-type: 'Special Elite', 'Courier New', monospace;
   --font-title: 'Archivo Black', 'Arial Black', sans-serif;
 }
+
+:root {
+  --desk: #6b4a30;
+  --desk-dark: #4a321f;
+  --airmail: repeating-linear-gradient(135deg, var(--stamp-red) 0 12px, #fbf6ea 12px 18px, var(--post-blue) 18px 30px, #fbf6ea 30px 36px);
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.23 0 0 0 0 0.21 0 0 0 0 0.2 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}

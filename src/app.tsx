@@ -7,8 +7,9 @@ import { Album } from './screens/Album';
 import { GameScreen } from './screens/GameScreen';
 import { Home } from './screens/Home';
 import { Recap } from './screens/Recap';
+import { Settings } from './screens/Settings';
 
-type Screen = { name: 'home' } | { name: 'album' } | { name: 'game'; game: SoloGame } | { name: 'recap'; game: SoloGame };
+type Screen = { name: 'home' } | { name: 'album' } | { name: 'settings' } | { name: 'game'; game: SoloGame } | { name: 'recap'; game: SoloGame };
 
 const screen = signal<Screen>({ name: 'home' });
 
@@ -32,6 +33,11 @@ export function showAlbum(): void {
   screen.value = { name: 'album' };
 }
 
+export function showSettings(): void {
+  goHome();
+  screen.value = { name: 'settings' };
+}
+
 export function showRecap(game: SoloGame): void {
   document.title = t.app.tabTitle;
   screen.value = { name: 'recap', game };
@@ -48,5 +54,7 @@ export function App() {
       return <Recap game={s.game} />;
     case 'album':
       return <Album />;
+    case 'settings':
+      return <Settings />;
   }
 }

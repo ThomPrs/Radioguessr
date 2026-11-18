@@ -5,6 +5,8 @@ import { computeHints, type StationHints, type ZoneRow } from '../../shared/hint
 import { haversineKm, ROUNDS_PER_GAME, roundScore, type LatLon } from '../../shared/scoring';
 import type { Game, HintKind, Round, Station } from '../../shared/types';
 import { RadioPlayer } from '../audio/radio';
+import { startStatic, stopStatic } from '../audio/sfx';
+import { hashString } from '../../shared/rng';
 import { createQslCard } from '../../shared/qsl';
 import { collectCard, recordGame } from '../state/save';
 import { nearestCity, preloadPlaces } from './places';
@@ -41,6 +43,8 @@ export class SoloGame {
   readonly hints = signal<StationHints | null>(null);
   readonly usedHints = signal<HintKind[]>([]);
   readonly error = signal<'unreachable' | 'no-station' | null>(null);
+  /** Position de l'aiguille sur le cadran (0..1), propre à chaque station, null pendant la recherche. */
+  readonly dial = signal<number | null>(null);
 
   /** Station en cours d'écoute : connue du moteur, jamais affichée avant la révélation. */
   private station: Station | null = null;
@@ -65,16 +69,21 @@ export class SoloGame {
     this.hints.value = null;
     this.usedHints.value = [];
     this.station = null;
+    this.dial.value = null;
+    startStatic();
     try {
       const [station, zones] = await Promise.all([this.pool.tuneNext(this.player), loadZones()]);
+      stopStatic();
       if (this.disposed) return;
       this.station = station;
+      this.dial.value = 0.06 + ((hashString(station.id) % 1000) / 1000) * 0.88;
       // Tests automatisés uniquement : absent du build de production (import.meta.env.DEV = false).
       if (import.meta.env.DEV) Object.assign(window, { __rgDebugStation: station, __rgGame: this });
       this.hints.value = computeHints(station, zones);
       this.phase.value = 'listening';
       this.game.value = { ...this.game.value, phase: 'listening' };
     } catch (err) {
+      stopStatic();
       if (this.disposed || (err instanceof DOMException && err.name === 'AbortError')) return;
       this.error.value = err instanceof Error && err.message === 'no-station' ? 'no-station' : 'unreachable';
       this.phase.value = 'error';
@@ -140,6 +149,7 @@ export class SoloGame {
 
   dispose(): void {
     this.disposed = true;
+    stopStatic();
     this.player.stop();
   }
 }

@@ -48,7 +48,8 @@ export function Album() {
   }, [open]);
 
   return (
-    <main class="album">
+    <main class="desk sheet-page">
+      <div class="sheet album">
       <header class="album-header">
         <button class="link-button" onClick={goHome}>
           ← {t.album.back}
@@ -103,6 +104,7 @@ export function Album() {
           </div>
         </div>
       )}
+      </div>
     </main>
   );
 }

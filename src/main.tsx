@@ -1,6 +1,7 @@
 import { render } from 'preact';
 import { App } from './app';
 import { t } from './i18n/fr';
+import { installPrefs } from './state/prefs';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/qsl.css';
@@ -15,4 +16,5 @@ document.body.insertAdjacentHTML(
     <feDisplacementMap in="SourceGraphic" in2="n" scale="2.5"/>
   </filter></svg>`,
 );
+installPrefs();
 render(<App />, document.getElementById('app')!);
