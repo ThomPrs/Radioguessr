@@ -14,7 +14,7 @@ export interface TrackInfo {
 
 export type NewsVerdict = 'song' | 'artist' | 'none';
 
-export const NEWS_INTRO_MS = 4_000; // jingle du flash spécial
+export const NEWS_INTRO_MS = 7_000; // flash spécial : coupure, alerte, journal, compte à rebours
 export const NEWS_LISTEN_MS = 30_000; // durée d'un extrait
 export const NEWS_REVEAL_MS = 15_000; // révélation avant reprise automatique
 export const NEWS_SONG_BASE = 1_000;

@@ -421,7 +421,8 @@ function NewsStage({ session, view }: { session: DuelSession; view: RoomView }) 
         </div>
         <ChatPanel session={session} />
       </section>
-      <section class="game-map news-stage">
+      <section class="game-map map-sheet" aria-hidden="true" />
+      {/* Breaking News : surcouche plein écran */}
         <BreakingNews
           phase={n.phase}
           clock={() => session.serverNow.value}
@@ -441,7 +442,6 @@ function NewsStage({ session, view }: { session: DuelSession; view: RoomView }) 
           continueDisabled={n.you.ready || session.busy.value}
           continueLabel={n.you.ready ? t.news.waitingReady : t.duel.ready}
         />
-      </section>
     </main>
   );
 }

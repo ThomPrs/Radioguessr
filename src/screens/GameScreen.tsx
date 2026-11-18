@@ -161,8 +161,22 @@ export function GameScreen({ game }: { game: SoloGame }) {
         )}
       </section>
 
-      {phase === 'news' && news ? (
-        <section class="game-map news-stage">
+      <section class="game-map map-sheet">
+        <MapView
+          onReady={(m) => {
+            map.current = m;
+            m.setPinnable(game.phase.peek() === 'listening');
+          }}
+          onPin={(p) => {
+            if (game.phase.peek() !== 'listening') return;
+            pinSound();
+            game.setGuess(p);
+          }}
+        />
+      </section>
+
+      {/* Breaking News : surcouche plein écran, la carte reste en dessous */}
+      {phase === 'news' && news && (
           <BreakingNews
             phase={news.phase}
             clock={Date.now}
@@ -182,21 +196,6 @@ export function GameScreen({ game }: { game: SoloGame }) {
               void game.continueAfterNews();
             }}
           />
-        </section>
-      ) : (
-      <section class="game-map map-sheet">
-          <MapView
-            onReady={(m) => {
-              map.current = m;
-              m.setPinnable(game.phase.peek() === 'listening');
-            }}
-            onPin={(p) => {
-              if (game.phase.peek() !== 'listening') return;
-              pinSound();
-              game.setGuess(p);
-            }}
-          />
-        </section>
       )}
 
       {envelopeFor?.card && (envelopeFor.qsl === 'new' || envelopeFor.qsl === 'upgraded') && (

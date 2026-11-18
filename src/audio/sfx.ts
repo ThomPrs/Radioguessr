@@ -98,8 +98,8 @@ export function stopStatic(): void {
   lfo.stop(t + 0.35);
 }
 
-/** Courte rafale de grésillement (changement de station). */
-export function staticBurst(duration = 0.4): void {
+/** Courte rafale de grésillement (changement de station, coupure de la Breaking News). */
+export function staticBurst(duration = 0.4, volume = 0.15): void {
   const a = audio();
   if (!a) return;
   const { ctx: c, out } = a;
@@ -107,10 +107,56 @@ export function staticBurst(duration = 0.4): void {
   const hp = c.createBiquadFilter();
   hp.type = 'bandpass';
   hp.frequency.value = 2500;
-  const g = envGain(c, 0.15, 0.02, duration);
+  const g = envGain(c, volume, 0.02, duration);
   src.connect(hp).connect(g).connect(out);
   src.start();
   src.stop(c.currentTime + duration + 0.1);
+}
+
+/** Sirène d'alerte (≈ 1 s) : deux tons qui montent et descendent. */
+export function siren(duration = 1): void {
+  const a = audio();
+  if (!a) return;
+  const { ctx: c, out } = a;
+  const t = c.currentTime;
+  const o = c.createOscillator();
+  o.type = 'sawtooth';
+  const lfo = c.createOscillator();
+  lfo.frequency.value = 3; // va-et-vient du hululement
+  const depth = c.createGain();
+  depth.gain.value = 220;
+  o.frequency.value = 760;
+  lfo.connect(depth).connect(o.frequency);
+  const lp = c.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 2200;
+  o.connect(lp).connect(envGain(c, 0.16, 0.05, duration, t)).connect(out);
+  o.start(t);
+  lfo.start(t);
+  o.stop(t + duration + 0.1);
+  lfo.stop(t + duration + 0.1);
+}
+
+/** « Boum » de rotative : le journal qui s'écrase sur l'écran. */
+export function pressThump(): void {
+  const a = audio();
+  if (!a) return;
+  const { ctx: c, out } = a;
+  const t = c.currentTime;
+  const o = c.createOscillator();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(110, t);
+  o.frequency.exponentialRampToValueAtTime(32, t + 0.35);
+  o.connect(envGain(c, 1, 0.005, 0.45, t)).connect(out);
+  o.start(t);
+  o.stop(t + 0.5);
+  const n = noiseSource(c);
+  const lp = c.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 600;
+  n.connect(lp).connect(envGain(c, 0.6, 0.003, 0.25, t)).connect(out);
+  n.start(t);
+  n.stop(t + 0.3);
 }
 
 // ── Bruitages ponctuels ───────────────────────────────────────────────────

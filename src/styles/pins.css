@@ -1,8 +1,12 @@
 /* ── Épingles ──────────────────────────────────────────────────────────── */
 .pin-art { display: inline-block; vertical-align: middle; flex: none; }
-.pin-art.is-locked { filter: grayscale(1) brightness(0.5) contrast(0.6); opacity: 0.4; }
-.pin-art.rarity-legendary:not(.is-locked) { animation: pin-shine 2.6s ease-in-out infinite; }
-.pin-art .pin-glow { animation: glow 2.4s ease-in-out infinite; }
+.pin-art.is-locked { opacity: 0.55; }
+/* Légendaires et cristal : étincelles dessinées qui scintillent */
+.pin-art .twinkle-a { animation: twinkle 1.8s ease-in-out infinite; }
+.pin-art .twinkle-b { animation: twinkle 1.8s ease-in-out 0.9s infinite; }
+.pin-art .pin-rays { animation: rays 2.4s ease-in-out infinite; transform-origin: 20px 16px; }
+@keyframes twinkle { 50% { opacity: 0.15; transform-box: fill-box; } }
+@keyframes rays { 50% { opacity: 0.35; } }
 @keyframes pin-shine { 50% { filter: drop-shadow(0 0 6px #f3d778) brightness(1.12); } }
 
 .rarity-tag { font-family: var(--font-title); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; padding: 2px 8px; border: 2px solid currentColor; transform: rotate(-3deg); display: inline-block; }
