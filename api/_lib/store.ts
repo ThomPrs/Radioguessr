@@ -18,21 +18,37 @@ export interface Store {
 
 // ── Upstash ────────────────────────────────────────────────────────────────
 
-class UpstashStore implements Store {
+/**
+ * Avec automaticDeserialization: false, le SDK renvoie la réponse REST brute :
+ * HGETALL donne une liste plate [champ, valeur, champ, valeur…], pas un objet.
+ */
+export function pairsToRecord(raw: unknown): Record<string, string> | null {
+  if (Array.isArray(raw)) {
+    const out: Record<string, string> = {};
+    for (let i = 0; i + 1 < raw.length; i += 2) out[String(raw[i])] = String(raw[i + 1]);
+    return Object.keys(out).length > 0 ? out : null;
+  }
+  if (raw && typeof raw === 'object') {
+    const out = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)]));
+    return Object.keys(out).length > 0 ? out : null;
+  }
+  return null;
+}
+
+export class UpstashStore implements Store {
   constructor(private readonly redis: Redis) {}
 
   async hgetall(key: string) {
-    const r = await this.redis.hgetall<Record<string, string>>(key);
-    return r && Object.keys(r).length > 0 ? r : null;
+    return pairsToRecord(await this.redis.hgetall(key));
   }
   async hsetnx(key: string, field: string, value: string) {
-    return (await this.redis.hsetnx(key, field, value)) === 1;
+    return Number(await this.redis.hsetnx(key, field, value)) === 1;
   }
   async hset(key: string, fields: Record<string, string>) {
     await this.redis.hset(key, fields);
   }
   async hincrby(key: string, field: string, by: number) {
-    return this.redis.hincrby(key, field, by);
+    return Number(await this.redis.hincrby(key, field, by));
   }
   async hdel(key: string, ...fields: string[]) {
     if (fields.length) await this.redis.hdel(key, ...fields);
@@ -120,13 +136,18 @@ export function findRedisEnv(env: Record<string, string | undefined> = process.e
   return null;
 }
 
+/** Construction identique en production et dans les tests. */
+export function createUpstashStore(url: string, token: string): UpstashStore {
+  return new UpstashStore(new Redis({ url, token, automaticDeserialization: false }));
+}
+
 export function getStore(): Store {
   if (store) return store;
   const found = findRedisEnv();
   const url = found?.url;
   const token = found?.token;
   if (url && token) {
-    store = new UpstashStore(new Redis({ url, token, automaticDeserialization: false }));
+    store = createUpstashStore(url, token);
   } else if (process.env.VERCEL) {
     // En ligne sans Redis, la mémoire n'est pas partagée entre les instances : on refuse clairement.
     throw new StoreConfigError('Upstash Redis n’est pas configuré sur ce déploiement.');
