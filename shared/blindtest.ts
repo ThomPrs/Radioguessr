@@ -14,7 +14,7 @@ export interface TrackInfo {
 
 export type NewsVerdict = 'song' | 'artist' | 'none';
 
-export const NEWS_INTRO_MS = 6_500; // flash spécial : grésillement, journal, compte à rebours
+export const NEWS_INTRO_MS = 5_300; // flash spécial : journal qui tournoie, compte à rebours
 export const NEWS_LISTEN_MS = 30_000; // durée d'un extrait
 export const NEWS_REVEAL_MS = 15_000; // révélation avant reprise automatique
 export const NEWS_SONG_BASE = 3_500;
