@@ -1,7 +1,7 @@
 // Accueil : le bureau du DXeur.
 
 import { openDuelLobby, showAlbum, showProfile, showSettings, startWorldGame } from '../app';
-import { PinBadge } from '../pins/PinBadge';
+import { PinMarker } from '../pins/PinMarker';
 import { AvatarView } from '../profile/Avatar';
 import { clickSound, unlockAudio } from '../audio/sfx';
 import { t } from '../i18n/fr';
@@ -33,7 +33,9 @@ export function Home() {
           <span class="home-card-title">{t.home.profile}</span>
           <span class="home-card-desc">{t.profile.homeDesc(profile.name)}</span>
         </span>
-        {profile.pin && <PinBadge id={profile.pin} size={44} />}
+        <span class="home-profile-pin">
+          <PinMarker pinId={profile.pin} />
+        </span>
       </button>
 
       <nav class="home-menu">

@@ -1,6 +1,6 @@
 // Avatars dessinés (portraits) et couleurs de fond : identifiants partagés front / serveur.
 
-import { PIN_IDS } from './pins.js';
+import { PIN_IDS, STARTER_PIN } from './pins.js';
 
 export const AVATAR_FACES = [
   'operatrice',
@@ -28,10 +28,10 @@ export interface Avatar {
 
 export const DEFAULT_AVATAR: Avatar = { face: 'operatrice', bg: 0 };
 
-/** Apparence publique d'un joueur (avatar + épingle affichée), validée côté serveur. */
+/** Apparence publique d'un joueur (avatar + épingle plantée sur la carte), validée côté serveur. */
 export interface PlayerLook {
   avatar: Avatar;
-  pin: string | null;
+  pin: string;
 }
 
 /** Nettoie une apparence reçue d'un client : valeurs inconnues → valeurs par défaut. */
@@ -40,6 +40,6 @@ export function cleanLook(raw: unknown): PlayerLook {
   const face = AVATAR_FACES.includes(r.avatar?.face as AvatarFace) ? (r.avatar!.face as AvatarFace) : DEFAULT_AVATAR.face;
   const bgNum = Number(r.avatar?.bg);
   const bg = Number.isInteger(bgNum) && bgNum >= 0 && bgNum < AVATAR_BGS.length ? bgNum : DEFAULT_AVATAR.bg;
-  const pin = typeof r.pin === 'string' && PIN_IDS.has(r.pin) ? r.pin : null;
+  const pin = typeof r.pin === 'string' && PIN_IDS.has(r.pin) ? r.pin : STARTER_PIN;
   return { avatar: { face, bg }, pin };
 }

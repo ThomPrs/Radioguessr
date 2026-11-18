@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { cleanLook } from '../shared/avatars';
-import { PINS, RARITY_WEIGHTS, drawPin } from '../shared/pins';
+import { PINS, RARITY_WEIGHTS, STARTER_PIN, drawPin } from '../shared/pins';
 import { mulberry32 } from '../shared/rng';
 import { awardPin, defaultSave, migrate, save, updateProfile } from '../src/state/save';
 
@@ -22,13 +22,14 @@ describe('migrate', () => {
     expect(m.stats.gamesPlayed).toBe(3);
     expect(m.stats.duels).toEqual({ won: 0, lost: 0, draw: 0 });
     expect(m.prefs).toMatchObject({ muted: true, sfxVolume: 0.6 });
-    expect(m.pins).toEqual({});
-    expect(m.profile).toMatchObject({ avatar: { face: 'operatrice', bg: 0 }, pin: null });
+    expect(m.pins).toEqual({ punaise: 1 }); // épingle de départ
+    expect(m.profile).toMatchObject({ avatar: { face: 'operatrice', bg: 0 }, pin: 'punaise' });
   });
-  it('v2 : épingles inconnues ignorées, épingle affichée seulement si possédée', () => {
+  it('v2 : épingles inconnues ignorées, punaise ajoutée, épingle plantée seulement si possédée', () => {
     const m = migrate({ version: 2, pins: { globe: 2, inconnue: 5 }, profile: { name: '  Bob  ', avatar: { face: 'robot', bg: 3 }, pin: 'phare' } });
-    expect(m.pins).toEqual({ globe: 2 });
-    expect(m.profile).toEqual({ name: 'Bob', avatar: { face: 'robot', bg: 3 }, pin: null });
+    expect(m.pins).toEqual({ globe: 2, punaise: 1 });
+    expect(m.profile).toEqual({ name: 'Bob', avatar: { face: 'robot', bg: 3 }, pin: 'punaise' });
+    expect(migrate({ version: 2, pins: { globe: 1 }, profile: { pin: 'globe' } }).profile.pin).toBe('globe');
   });
   it('version future : on repart à zéro sans planter', () => {
     expect(migrate({ version: 99 })).toEqual(defaultSave());
@@ -40,20 +41,20 @@ describe('épingles', () => {
     save.value = defaultSave();
   });
 
-  it('les doublons sont comptés ; la première épingle est affichée d’office', () => {
+  it('les doublons sont comptés ; l’épingle plantée ne change pas toute seule', () => {
+    expect(save.value.profile.pin).toBe(STARTER_PIN);
     expect(awardPin('globe')).toBe(1);
-    expect(save.value.profile.pin).toBe('globe');
     expect(awardPin('phare')).toBe(1);
     expect(awardPin('globe')).toBe(2);
-    expect(save.value.pins).toEqual({ globe: 2, phare: 1 });
-    expect(save.value.profile.pin).toBe('globe'); // pas remplacée par les suivantes
+    expect(save.value.pins).toEqual({ punaise: 1, globe: 2, phare: 1 });
+    expect(save.value.profile.pin).toBe(STARTER_PIN);
     expect(awardPin('nexiste-pas')).toBe(0);
   });
 
   it('profil : épingle non possédée refusée, pseudo nettoyé', () => {
     awardPin('voilier');
     updateProfile({ name: '   Radio   Amateur  ', pin: 'satellite' });
-    expect(save.value.profile).toMatchObject({ name: 'Radio Amateur', pin: null });
+    expect(save.value.profile).toMatchObject({ name: 'Radio Amateur', pin: 'punaise' });
     updateProfile({ pin: 'voilier', avatar: { face: 'chat', bg: 2 } });
     expect(save.value.profile).toMatchObject({ pin: 'voilier', avatar: { face: 'chat', bg: 2 } });
   });
@@ -69,9 +70,14 @@ describe('épingles', () => {
     expect(PINS).toHaveLength(24);
   });
 
+  it('la punaise de départ n’est jamais tirée', () => {
+    const rng = mulberry32(3);
+    for (let i = 0; i < 5000; i++) expect(drawPin(rng).id).not.toBe(STARTER_PIN);
+  });
+
   it('apparence reçue d’un client : valeurs inconnues remplacées', () => {
-    expect(cleanLook({ avatar: { face: 'pirate', bg: 99 }, pin: '<script>' })).toEqual({ avatar: { face: 'operatrice', bg: 0 }, pin: null });
+    expect(cleanLook({ avatar: { face: 'pirate', bg: 99 }, pin: '<script>' })).toEqual({ avatar: { face: 'operatrice', bg: 0 }, pin: 'punaise' });
     expect(cleanLook({ avatar: { face: 'chat', bg: 4 }, pin: 'globe' })).toEqual({ avatar: { face: 'chat', bg: 4 }, pin: 'globe' });
-    expect(cleanLook(null).pin).toBeNull();
+    expect(cleanLook(null).pin).toBe('punaise');
   });
 });

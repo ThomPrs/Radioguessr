@@ -13,6 +13,7 @@ import {
   type PlayerView,
   type RoomView,
 } from '../../shared/duel';
+import { STARTER_PIN } from '../../shared/pins';
 import { shortStationName } from '../../shared/qsl';
 import { HINT_COST, hintsCost } from '../../shared/scoring';
 import type { HintKind } from '../../shared/types';
@@ -183,7 +184,12 @@ function Playing({ session, view }: { session: DuelSession; view: RoomView }) {
         r.station,
         view.players.map((p) => {
           const e = r.entries![p.id];
-          return { pos: e?.lat != null ? { lat: e.lat, lon: e.lon! } : null, color: PLAYER_COLORS[p.color]!, label: p.name };
+          return {
+            pos: e?.lat != null ? { lat: e.lat, lon: e.lon! } : null,
+            color: PLAYER_COLORS[p.color]!,
+            label: p.id === view.youId ? t.duel.you : p.name,
+            pinId: p.pin ?? STARTER_PIN,
+          };
         }),
       );
       stampSound();

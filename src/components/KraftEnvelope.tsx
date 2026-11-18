@@ -7,6 +7,7 @@ import { pinSound, stampSound, swooshSound, tearSound } from '../audio/sfx';
 import { t } from '../i18n/fr';
 import { PinBadge } from '../pins/PinBadge';
 import { reducedMotion } from '../state/prefs';
+import { save, updateProfile } from '../state/save';
 
 type Step = 'arrive' | 'shake' | 'tear' | 'reveal' | 'pinned';
 
@@ -92,6 +93,13 @@ export function KraftEnvelope({ pin, count, onClose }: Props) {
           <span class={`rarity-tag rarity-${pin.rarity}`}>{t.pins.rarity[pin.rarity]}</span>
           <span class={`kraft-dup${count === 1 ? ' is-new' : ''}`}>{count === 1 ? t.pins.newOne : t.pins.duplicate(count)}</span>
         </p>
+        {save.value.profile.pin === pin.id ? (
+          <p class="kraft-inuse">{t.pins.inUse}</p>
+        ) : (
+          <button class="stamp-button" onClick={() => updateProfile({ pin: pin.id })} disabled={step !== 'pinned'}>
+            {t.pins.useIt}
+          </button>
+        )}
         <button class="primary-action" onClick={onClose} disabled={step !== 'pinned'}>
           {t.pins.pinIt}
         </button>

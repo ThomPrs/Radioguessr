@@ -1,4 +1,5 @@
-// Épingles (pin's émaillés) à collectionner : catalogue, raretés, tirage au sort.
+// Épingles à collectionner : ce sont les marqueurs que le joueur plante sur la carte.
+// Catalogue, raretés, tirage au sort.
 
 import { weightedIndex, type Rng } from './rng.js';
 
@@ -49,13 +50,19 @@ export const PINS: readonly PinDef[] = [
 
 export const PIN_IDS = new Set(PINS.map((p) => p.id));
 
+/** Épingle de départ, possédée par tout le monde (la punaise rouge classique). */
+export const STARTER_PIN = 'punaise';
+
 export function pinById(id: string | null | undefined): PinDef | undefined {
   return id ? PINS.find((p) => p.id === id) : undefined;
 }
 
-/** Tire une épingle : d'abord la rareté (60 / 27 / 10 / 3 %), puis une épingle de cette rareté. */
+/**
+ * Tire une épingle : d'abord la rareté (60 / 27 / 10 / 3 %), puis une épingle de cette rareté.
+ * L'épingle de départ n'est jamais tirée (tout le monde l'a déjà).
+ */
 export function drawPin(rng: Rng = Math.random): PinDef {
   const rarity = RARITY_ORDER[weightedIndex(RARITY_ORDER.map((r) => RARITY_WEIGHTS[r]), rng)]!;
-  const pool = PINS.filter((p) => p.rarity === rarity);
+  const pool = PINS.filter((p) => p.rarity === rarity && p.id !== STARTER_PIN);
   return pool[Math.floor(rng() * pool.length)] ?? PINS[0]!;
 }

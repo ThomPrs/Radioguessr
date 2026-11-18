@@ -8,6 +8,7 @@ import { goHome } from '../app';
 import { clickSound, pinSound } from '../audio/sfx';
 import { t } from '../i18n/fr';
 import { PinBadge } from '../pins/PinBadge';
+import { PinMarker } from '../pins/PinMarker';
 import { AvatarView } from '../profile/Avatar';
 import { save, updateProfile } from '../state/save';
 
@@ -42,11 +43,6 @@ export function Profile() {
           <div class="member-card-body">
             <div class="member-portrait">
               <AvatarView avatar={profile.avatar} size={112} />
-              {profile.pin && (
-                <span class="member-pin">
-                  <PinBadge id={profile.pin} size={52} />
-                </span>
-              )}
             </div>
             <div class="member-fields">
               <label class="field">
@@ -62,6 +58,10 @@ export function Profile() {
                   onKeyDown={(e) => e.key === 'Enter' && saveName()}
                 />
               </label>
+              <p class="member-stats-label">{t.profile.preview}</p>
+              <div class="map-preview" aria-label={t.profile.preview}>
+                <PinMarker pinId={profile.pin} label={profile.name || undefined} />
+              </div>
               <p class="member-stats">
                 {Object.keys(album).length} QSL · {t.pins.count(owned, PINS.length)} · {stats.duels.won} victoire{stats.duels.won > 1 ? 's' : ''}
               </p>
@@ -108,17 +108,10 @@ export function Profile() {
         <h2>
           {t.profile.board} <small class="board-count">{t.pins.count(owned, PINS.length)}</small>
         </h2>
-        <p class="board-help">{owned === 0 ? t.pins.how : t.profile.pin}</p>
+        <p class="board-help">
+          <strong>{t.profile.pin}.</strong> {t.profile.pinHelp} {owned <= 1 && t.pins.how}
+        </p>
         <div class="cork-board">
-          <button
-            class={`cork-slot cork-none${profile.pin == null ? ' is-selected' : ''}`}
-            onClick={() => {
-              clickSound();
-              updateProfile({ pin: null });
-            }}
-          >
-            {t.pins.none}
-          </button>
           {board.map((p) => {
             const n = pins[p.id] ?? 0;
             return (

@@ -342,7 +342,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--stamp-red);
 .ink-map.leaflet-container { background-color: #dfe2d6; }
 .ink-map.is-pinnable { cursor: crosshair; }
 .ink-pin, .ink-station { background: none; border: none; }
-.ink-pin svg { animation: pin-drop 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); transform-origin: 50% 100%; }
+.ink-pin .pin-marker { animation: pin-drop 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); transform-origin: 50% 100%; }
 @keyframes pin-drop { from { transform: translateY(-14px) scale(1.15); } }
 .ink-map .leaflet-control-attribution { background: rgb(237 227 207 / 0.8); color: var(--ink); font-size: 10px; }
 .ink-map .leaflet-control-attribution a { color: var(--post-blue); }

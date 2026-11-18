@@ -5,11 +5,13 @@ import 'leaflet/dist/leaflet.css';
 import type { FeatureCollection } from 'geojson';
 import { greatCircleSegments, type LatLon } from '../../shared/scoring';
 import { t } from '../i18n/fr';
+import { pinMarkerIcon } from '../pins/PinMarker';
+import { STARTER_PIN } from '../../shared/pins';
 
 const INK = '#3a3632';
 const LAND = '#efe6d2';
 const POST_BLUE = '#2f5d8c'; // quadrillage
-const STAMP_RED = '#d9483b';
+const STAMP_RED = '#d9483b'; // arcs en solo
 
 let countriesPromise: Promise<FeatureCollection> | null = null;
 function loadCountries(): Promise<FeatureCollection> {
@@ -20,41 +22,12 @@ function loadCountries(): Promise<FeatureCollection> {
   return countriesPromise;
 }
 
-const pinIcon = L.divIcon({
-  className: 'ink-pin',
-  html: `<svg viewBox="0 0 32 48" width="32" height="48" aria-hidden="true">
-    <line x1="16" y1="20" x2="16" y2="46" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>
-    <ellipse cx="16" cy="44" rx="5" ry="1.6" fill="${INK}" opacity="0.25"/>
-    <circle cx="16" cy="13" r="10" fill="${STAMP_RED}" stroke="${INK}" stroke-width="1.5"/>
-    <circle cx="12.5" cy="9.5" r="3" fill="#fff" opacity="0.45"/>
-  </svg>`,
-  iconSize: [32, 48],
-  iconAnchor: [16, 46],
-});
-
-function pinIconColored(color: string): L.DivIcon {
-  return L.divIcon({
-    className: 'ink-pin',
-    html: `<svg viewBox="0 0 32 48" width="32" height="48" aria-hidden="true">
-      <line x1="16" y1="20" x2="16" y2="46" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>
-      <circle cx="16" cy="13" r="10" fill="${color}" stroke="${INK}" stroke-width="1.5"/>
-      <circle cx="12.5" cy="9.5" r="3" fill="#fff" opacity="0.45"/>
-    </svg>`,
-    iconSize: [32, 48],
-    iconAnchor: [16, 46],
-  });
-}
-const coloredPins = new Map<string, L.DivIcon>();
-function pinIconFor(color: string): L.DivIcon {
-  let icon = coloredPins.get(color);
-  if (!icon) coloredPins.set(color, (icon = pinIconColored(color)));
-  return icon;
-}
-
 export interface PlayerPin {
   pos: LatLon | null;
   color: string;
   label: string;
+  /** Épingle du joueur (marqueur). */
+  pinId: string;
 }
 
 const stationIcon = L.divIcon({
@@ -68,19 +41,6 @@ const stationIcon = L.divIcon({
   iconAnchor: [20, 36],
 });
 
-function numberedPinIcon(n: number): L.DivIcon {
-  return L.divIcon({
-    className: 'ink-pin',
-    html: `<svg viewBox="0 0 32 48" width="28" height="42" aria-hidden="true">
-      <line x1="16" y1="20" x2="16" y2="46" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>
-      <circle cx="16" cy="13" r="11" fill="${STAMP_RED}" stroke="${INK}" stroke-width="1.5"/>
-      <text x="16" y="18" text-anchor="middle" font-family="Archivo Black, sans-serif" font-size="13" fill="#fff">${n}</text>
-    </svg>`,
-    iconSize: [28, 42],
-    iconAnchor: [14, 40],
-  });
-}
-
 export interface SummaryItem {
   station: LatLon;
   guess: LatLon | null;
@@ -88,6 +48,8 @@ export interface SummaryItem {
 
 export interface InkMapOptions {
   onPin?: (pos: LatLon) => void;
+  /** Épingle plantée par le joueur (profil). */
+  pinId?: string;
 }
 
 export class InkMap {
@@ -96,9 +58,11 @@ export class InkMap {
   private pinnable = false;
   private readonly overlay = L.layerGroup();
   private readonly onPin: ((pos: LatLon) => void) | undefined;
+  private pinId: string;
 
   constructor(container: HTMLElement, opts: InkMapOptions = {}) {
     this.onPin = opts.onPin;
+    this.pinId = opts.pinId ?? STARTER_PIN;
     const renderer = L.canvas({ padding: 0.5 });
     this.map = L.map(container, {
       renderer,
@@ -152,7 +116,7 @@ export class InkMap {
     if (this.pin) {
       this.pin.setLatLng(latlng);
     } else {
-      this.pin = L.marker(latlng, { icon: pinIcon, draggable: true, keyboard: false }).addTo(this.map);
+      this.pin = L.marker(latlng, { icon: pinMarkerIcon(this.pinId), draggable: true, keyboard: false }).addTo(this.map);
       this.pin.on('dragend', () => {
         const p = this.pin!.getLatLng().wrap();
         this.pin!.setLatLng(p);
@@ -160,6 +124,12 @@ export class InkMap {
       });
     }
     this.onPin?.({ lat: latlng.lat, lon: latlng.lng });
+  }
+
+  /** Change l'épingle du joueur (profil modifié) ; la punaise déjà posée est redessinée. */
+  setMarkerPin(pinId: string): void {
+    this.pinId = pinId;
+    this.pin?.setIcon(pinMarkerIcon(pinId));
   }
 
   /** Autorise ou non la pose de la punaise (pendant l'écoute uniquement). */
@@ -195,7 +165,7 @@ export class InkMap {
       return;
     }
     if (this.pin) this.pin.setLatLng([pos.lat, pos.lon]);
-    else this.pin = L.marker([pos.lat, pos.lon], { icon: pinIcon, draggable: this.pinnable, keyboard: false }).addTo(this.map);
+    else this.pin = L.marker([pos.lat, pos.lon], { icon: pinMarkerIcon(this.pinId), draggable: this.pinnable, keyboard: false }).addTo(this.map);
   }
 
   /** Révélation multijoueur : la station, et pour chaque joueur sa punaise et son arc, dans sa couleur. */
@@ -205,13 +175,13 @@ export class InkMap {
     this.setPin(null); // la punaise « locale » est remplacée par celle, colorée, du joueur
     L.marker([station.lat, station.lon], { icon: stationIcon, interactive: false }).addTo(this.overlay);
     const points: L.LatLngExpression[] = [[station.lat, station.lon]];
-    for (const { pos, color, label } of pins) {
+    for (const { pos, color, label, pinId } of pins) {
       if (!pos) continue;
       points.push([pos.lat, pos.lon]);
       for (const seg of greatCircleSegments(pos, station)) {
         L.polyline(seg, { color, weight: 2.5, dashArray: '6 6', interactive: false }).addTo(this.overlay);
       }
-      L.marker([pos.lat, pos.lon], { icon: pinIconFor(color), title: label, keyboard: false }).addTo(this.overlay);
+      L.marker([pos.lat, pos.lon], { icon: pinMarkerIcon(pinId, { ring: color, label }), title: label, keyboard: false }).addTo(this.overlay);
     }
     if (points.length > 1) this.map.flyToBounds(L.latLngBounds(points).pad(0.3), { maxZoom: 6, duration: 1 });
     else this.map.flyTo([station.lat, station.lon], 4, { duration: 1 });
@@ -230,7 +200,7 @@ export class InkMap {
       for (const seg of greatCircleSegments(item.guess, item.station)) {
         L.polyline(seg, { color: STAMP_RED, weight: 2, dashArray: '5 5', interactive: false }).addTo(this.overlay);
       }
-      L.marker([item.guess.lat, item.guess.lon], { icon: numberedPinIcon(i + 1), interactive: false }).addTo(this.overlay);
+      L.marker([item.guess.lat, item.guess.lon], { icon: pinMarkerIcon(this.pinId, { number: i + 1 }), interactive: false }).addTo(this.overlay);
     });
     if (points.length > 0) this.map.fitBounds(L.latLngBounds(points).pad(0.2), { maxZoom: 5 });
   }

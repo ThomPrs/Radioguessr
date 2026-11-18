@@ -221,7 +221,7 @@ describe('apparence des joueurs', () => {
     const v = await getRoom(h.code, cred(b), T0 + 200);
     expect(v.players.map((p) => [p.name, p.avatar, p.pin])).toEqual([
       ['Alice', { face: 'chat', bg: 2 }, 'globe'],
-      ['Bob', { face: 'operatrice', bg: 0 }, null],
+      ['Bob', { face: 'operatrice', bg: 0 }, 'punaise'],
     ]);
   });
 });
