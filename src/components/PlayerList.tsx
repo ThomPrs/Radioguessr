@@ -2,6 +2,8 @@
 
 import { PLAYER_COLORS, type PlayerView } from '../../shared/duel';
 import { formatInt } from '../format';
+import { PinBadge } from '../pins/PinBadge';
+import { AvatarView } from '../profile/Avatar';
 import { t } from '../i18n/fr';
 
 interface Props {
@@ -26,12 +28,15 @@ export function PlayerList({ players, youId, phase }: Props) {
         const status = statusOf(p, phase);
         return (
           <li key={p.id} class={`player-row${p.gone ? ' is-gone' : ''}`}>
-            <span class="player-dot" style={{ background: PLAYER_COLORS[p.color] }} aria-hidden="true" />
+            <span class="player-avatar" style={{ borderColor: PLAYER_COLORS[p.color] }}>
+              <AvatarView avatar={p.avatar} size={30} title={p.name} />
+            </span>
             <span class="player-name">
               {p.name}
               {p.id === youId && <em class="player-tag"> ({t.duel.youTag})</em>}
               {p.isHost && <span class="player-host">{t.duel.host}</span>}
             </span>
+            {p.pin && <PinBadge id={p.pin} size={24} />}
             {status && <span class={`player-status ${status.cls}`}>{status.label}</span>}
             {phase !== 'waiting' && <span class="player-total">{formatInt(p.total)}</span>}
           </li>

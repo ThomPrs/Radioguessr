@@ -1,5 +1,6 @@
 // Appels à l'API des salons, et mémorisation de l'identité pour la reconnexion.
 
+import type { PlayerLook } from '../../shared/avatars';
 import type { DuelAction, DuelErrorCode, JoinResponse, RoomView } from '../../shared/duel';
 import type { HintKind } from '../../shared/types';
 
@@ -129,9 +130,9 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, 
 }
 
 export const api = {
-  create: (name: string) => request<JoinResponse>('POST', '/api/rooms', { name }),
-  join: (code: string, name: string, id: Identity | null) =>
-    request<JoinResponse>('POST', `/api/rooms/${code}`, { action: 'join', name } satisfies DuelAction, id),
+  create: (name: string, look: PlayerLook) => request<JoinResponse>('POST', '/api/rooms', { name, ...look }),
+  join: (code: string, name: string, id: Identity | null, look: PlayerLook) =>
+    request<JoinResponse>('POST', `/api/rooms/${code}`, { action: 'join', name, ...look } satisfies DuelAction, id),
   get: (id: Identity, chatSince = 0) => request<RoomView>('GET', `/api/rooms/${id.code}?chat=${chatSince}`, undefined, id),
   act: (id: Identity, action: Exclude<DuelAction, { action: 'join' }>, chatSince = 0) =>
     request<{ view: RoomView; hint?: string }>('POST', `/api/rooms/${id.code}?chat=${chatSince}`, action, id),

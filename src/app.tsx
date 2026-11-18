@@ -10,6 +10,7 @@ import { DuelLobby } from './screens/DuelLobby';
 import { DuelRoom } from './screens/DuelRoom';
 import { GameScreen } from './screens/GameScreen';
 import { Home } from './screens/Home';
+import { Profile } from './screens/Profile';
 import { Recap } from './screens/Recap';
 import { Settings } from './screens/Settings';
 
@@ -17,6 +18,7 @@ type Screen =
   | { name: 'home' }
   | { name: 'album' }
   | { name: 'settings' }
+  | { name: 'profile' }
   | { name: 'duel-lobby'; code: string }
   | { name: 'duel-room'; session: DuelSession } | { name: 'game'; game: SoloGame } | { name: 'recap'; game: SoloGame };
 
@@ -55,6 +57,11 @@ export function showAlbum(): void {
   screen.value = { name: 'album' };
 }
 
+export function showProfile(): void {
+  goHome();
+  screen.value = { name: 'profile' };
+}
+
 export function showSettings(): void {
   goHome();
   screen.value = { name: 'settings' };
@@ -88,6 +95,8 @@ export function App() {
       return <Album />;
     case 'settings':
       return <Settings />;
+    case 'profile':
+      return <Profile />;
     case 'duel-lobby':
       return <DuelLobby initialCode={s.code} />;
     case 'duel-room':

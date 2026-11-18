@@ -19,6 +19,9 @@ import type { HintKind } from '../../shared/types';
 import { clickSound, pinSound, stampSound } from '../audio/sfx';
 import { goHome, openDuelLobby } from '../app';
 import { ChatPanel } from '../components/ChatPanel';
+import { KraftEnvelope } from '../components/KraftEnvelope';
+import { PinBadge } from '../pins/PinBadge';
+import { AvatarView } from '../profile/Avatar';
 import { EnvelopeReveal } from '../components/EnvelopeReveal';
 import { MapView } from '../components/MapView';
 import { PlayerList } from '../components/PlayerList';
@@ -380,6 +383,8 @@ function Results({ session, view }: { session: DuelSession; view: RoomView }) {
   const firsts = ranking.filter((r) => r.rank === 1).length;
   const verdict = myRank !== 1 ? t.duel.lost : firsts > 1 ? t.duel.draw : t.duel.won;
   const cards = Object.values(session.cards.value).filter((c) => c.outcome !== 'kept');
+  const prize = session.prize.value;
+  const [prizeOpen, setPrizeOpen] = useState(true);
 
   const leave = (then: () => void) => () => {
     forgetIdentity(view.code);
@@ -397,11 +402,14 @@ function Results({ session, view }: { session: DuelSession; view: RoomView }) {
             {ranking.map(({ player, rank }) => (
               <li key={player.id} class={`ranking-row rank-${Math.min(rank, 4)}${player.id === view.youId ? ' is-mine' : ''}`}>
                 <span class="ranking-rank">{t.duel.rank(rank)}</span>
-                <span class="pin-dot" style={{ background: PLAYER_COLORS[player.color] }} aria-hidden="true" />
+                <span class="player-avatar" style={{ borderColor: PLAYER_COLORS[player.color] }}>
+                  <AvatarView avatar={player.avatar} size={34} title={player.name} />
+                </span>
                 <span class="ranking-name">
                   {player.name}
                   {player.id === view.youId && <em class="player-tag"> ({t.duel.youTag})</em>}
                 </span>
+                {player.pin && <PinBadge id={player.pin} size={26} />}
                 <span class="ranking-total">{formatInt(player.total)}</span>
               </li>
             ))}
@@ -462,6 +470,7 @@ function Results({ session, view }: { session: DuelSession; view: RoomView }) {
         </div>
         <ChatPanel session={session} />
       </section>
+      {prize && prizeOpen && <KraftEnvelope pin={prize.pin} count={prize.count} onClose={() => setPrizeOpen(false)} />}
       <section class="game-map map-sheet">
         <MapView
           onReady={(m) =>

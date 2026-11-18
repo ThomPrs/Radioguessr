@@ -18,6 +18,7 @@ import {
   type RoomView,
   type RoundView,
 } from '../../shared/duel.js';
+import { DEFAULT_AVATAR, type Avatar } from '../../shared/avatars.js';
 import { computeHints, localTimeLabel, utcOffsetLabel } from '../../shared/hints.js';
 import { ZONES } from '../../shared/timezones-data.js';
 import type { HintKind, Station } from '../../shared/types.js';
@@ -28,6 +29,8 @@ export interface PlayerRecord {
   name: string;
   joinedAt: number;
   color: number;
+  avatar?: Avatar;
+  pin?: string | null;
 }
 
 export interface Meta {
@@ -237,6 +240,8 @@ export function buildView(snap: Snapshot, pid: string, now: number, chatSince = 
     return {
       id: p.id,
       name: p.name,
+      avatar: p.avatar ?? DEFAULT_AVATAR,
+      pin: p.pin ?? null,
       color: p.color,
       isHost: p.id === hostId,
       connected: !snap.left[p.id] && now - seen <= CONNECTED_MS,

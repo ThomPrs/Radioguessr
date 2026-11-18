@@ -1,12 +1,14 @@
 // Accueil : le bureau du DXeur.
 
-import { openDuelLobby, showAlbum, showSettings, startWorldGame } from '../app';
+import { openDuelLobby, showAlbum, showProfile, showSettings, startWorldGame } from '../app';
+import { PinBadge } from '../pins/PinBadge';
+import { AvatarView } from '../profile/Avatar';
 import { clickSound, unlockAudio } from '../audio/sfx';
 import { t } from '../i18n/fr';
 import { save } from '../state/save';
 
 export function Home() {
-  const { stats, album } = save.value;
+  const { stats, album, profile } = save.value;
   const cards = Object.keys(album).length;
 
   return (
@@ -17,6 +19,22 @@ export function Home() {
         </h1>
         <p class="home-tagline">{t.app.tagline}</p>
       </header>
+
+      <button
+        class="home-profile"
+        onClick={() => {
+          unlockAudio();
+          clickSound();
+          showProfile();
+        }}
+      >
+        <AvatarView avatar={profile.avatar} size={56} />
+        <span class="home-profile-text">
+          <span class="home-card-title">{t.home.profile}</span>
+          <span class="home-card-desc">{t.profile.homeDesc(profile.name)}</span>
+        </span>
+        {profile.pin && <PinBadge id={profile.pin} size={44} />}
+      </button>
 
       <nav class="home-menu">
         <button

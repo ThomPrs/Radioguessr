@@ -4,22 +4,25 @@ import { useMemo, useState } from 'preact/hooks';
 import { MAX_NAME_LENGTH, ROOM_CODE_LENGTH, cleanName, isValidCode, normalizeCode } from '../../shared/duel';
 import { goHome, openDuelRoom } from '../app';
 import { clickSound, unlockAudio } from '../audio/sfx';
-import { ApiError, api, lastIdentity, loadIdentity, rememberName, saveIdentity, savedName } from '../duel/client';
+import { ApiError, api, lastIdentity, loadIdentity, saveIdentity, savedName } from '../duel/client';
+import { save, updateProfile } from '../state/save';
 import { t } from '../i18n/fr';
 
 export function DuelLobby({ initialCode = '' }: { initialCode?: string }) {
   const fallbackName = useMemo(() => `DX-${1000 + Math.floor(Math.random() * 9000)}`, []);
-  const [name, setName] = useState(savedName());
+  const [name, setName] = useState(save.value.profile.name || savedName());
   const [code, setCode] = useState(normalizeCode(initialCode));
   const [busy, setBusy] = useState<'create' | 'join' | null>(null);
   const [error, setError] = useState('');
   const resumable = lastIdentity();
 
+  /** Pseudo saisi (ou proposé) : il devient celui du profil. */
   const finalName = () => {
     const n = cleanName(name) || fallbackName;
-    rememberName(n);
+    updateProfile({ name: n });
     return n;
   };
+  const look = () => ({ avatar: save.value.profile.avatar, pin: save.value.profile.pin });
 
   const fail = (err: unknown) => {
     const c = err instanceof ApiError ? err.code : 'network';
@@ -34,7 +37,7 @@ export function DuelLobby({ initialCode = '' }: { initialCode?: string }) {
     setBusy('create');
     setError('');
     try {
-      const r = await api.create(finalName());
+      const r = await api.create(finalName(), look());
       openDuelRoom(saveIdentity(r));
     } catch (err) {
       fail(err);
@@ -49,7 +52,7 @@ export function DuelLobby({ initialCode = '' }: { initialCode?: string }) {
     setBusy('join');
     setError('');
     try {
-      const r = await api.join(code, finalName(), loadIdentity(code));
+      const r = await api.join(code, finalName(), loadIdentity(code), look());
       openDuelRoom(saveIdentity(r));
     } catch (err) {
       fail(err);

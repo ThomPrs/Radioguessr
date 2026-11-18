@@ -377,38 +377,29 @@
 .step-stamped .env-back, .step-stamped .env-front, .step-stamped .env-flap { visibility: hidden; }
 .step-stamped .env-stage, .env-stage.step-stamped { animation: none; transform: rotate(0); }
 
-/* Tampon qui s'abat sur la carte */
-.env-stamp {
+/* Tampon qui s'abat sur la carte : posé sur le recto, il pivote avec elle. */
+.reception-stamp {
   --rot: -10deg;
   position: absolute;
-  right: 9%;
-  bottom: 20%;
+  right: 5cqw;
+  bottom: 12cqw;
   z-index: 7;
-  width: 28%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  border: 5px double var(--stamp-red);
-  color: var(--stamp-red);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: clamp(0.6rem, 1.8vw, 0.85rem);
-  letter-spacing: 0.15em;
-  background: rgb(237 227 207 / 0.25);
-  mix-blend-mode: multiply;
-  filter: url(#ink-bleed);
+  /* Taille en unités de la carte (cqw), comme le reste de la carte : identique dans tous les navigateurs. */
+  width: 27cqw;
+  height: 27cqw;
   opacity: 0;
   pointer-events: none;
+  backface-visibility: hidden;
+  /* Firefox ne masque pas toujours les enfants d'une face retournée : le tampon s'éclipse
+     exactement à mi-rotation (carte vue de profil, 0,3 s sur 0,6 s), dans les deux sens. */
+  transition: visibility 0s linear 0.3s;
 }
-.env-stamp strong { font-family: var(--font-title); font-size: 1.9em; letter-spacing: 0.04em; }
-.qsl-gold ~ .env-stamp { color: #a8841a; border-color: #c9a227; }
-/* Carte retournée : le tampon (posé sur le recto) disparaît. visibility n'est pas animée, elle l'emporte. */
-.qsl.is-flipped ~ .env-stamp { visibility: hidden; }
-.step-stamped .env-stamp { animation: stamp-thump 0.28s cubic-bezier(0.5, 0, 0.75, 0) forwards; }
+.qsl.is-flipped .reception-stamp { visibility: hidden; }
+.reception-stamp svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.step-stamped .reception-stamp { animation: stamp-thump 0.28s cubic-bezier(0.5, 0, 0.75, 0) forwards; }
 @keyframes stamp-thump {
   from { opacity: 0; transform: rotate(var(--rot)) scale(2.4); }
-  to { opacity: 0.9; transform: rotate(var(--rot)) scale(1); }
+  to { opacity: 1; transform: rotate(var(--rot)) scale(1); }
 }
 .env-caption { display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: 0; transition: opacity 0.4s; width: min(360px, 90vw); }
 .env-caption.is-visible { opacity: 1; }

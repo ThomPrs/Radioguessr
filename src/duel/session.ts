@@ -8,7 +8,8 @@ import type { HintKind } from '../../shared/types';
 import { startStatic, stopStatic, typeClick } from '../audio/sfx';
 import { nearestCity, preloadPlaces } from '../game/places';
 import { getPlayer } from '../game/solo';
-import { collectCard, recordDuel } from '../state/save';
+import { drawPin, type PinDef } from '../../shared/pins';
+import { awardPin, collectCard, recordDuel } from '../state/save';
 import { ApiError, api, forgetIdentity, type Identity } from './client';
 
 export type ConnectionState = 'ok' | 'retrying' | 'expired' | 'forbidden';
@@ -30,6 +31,8 @@ export class DuelSession {
   readonly busy = signal(false);
   /** Messages du salon (les plus anciens d'abord), fusionnés par identifiant. */
   readonly chat = signal<ChatMessage[]>([]);
+  /** Épingle gagnée en fin de partie (vainqueur, ex æquo compris), à ouvrir dans l'enveloppe kraft. */
+  readonly prize = signal<{ pin: PinDef; count: number } | null>(null);
   /** Erreur du dernier envoi de message (trop rapide…). */
   readonly chatError = signal<string | null>(null);
 
@@ -123,7 +126,15 @@ export class DuelSession {
       // Victoire : seul en tête ; égalité : premier ex æquo ; sinon défaite.
       const ranking = rankPlayers(v.players);
       const firsts = ranking.filter((r) => r.rank === 1).map((r) => r.player.id);
-      recordDuel(!firsts.includes(v.youId) ? 'lost' : firsts.length === 1 ? 'won' : 'draw');
+      const result = !firsts.includes(v.youId) ? 'lost' : firsts.length === 1 ? 'won' : 'draw';
+      // Partie déjà comptée avant un rechargement de la page : ni statistique ni épingle en double.
+      if (this.markOnce('done')) {
+        recordDuel(result);
+        if (result !== 'lost' && v.players.filter((p) => !p.gone).length >= 2) {
+          const pin = drawPin();
+          this.prize.value = { pin, count: awardPin(pin.id) };
+        }
+      }
     }
   }
 
@@ -151,6 +162,18 @@ export class DuelSession {
         this.radio.value = 'dead';
       }
     }
+  }
+
+  /** Vrai la première fois seulement, pour ce salon et ce joueur (mémorisé dans le navigateur). */
+  private markOnce(what: string): boolean {
+    const key = `radioguessr:room-${what}:${this.id.code}:${this.id.playerId}`;
+    try {
+      if (localStorage.getItem(key)) return false;
+      localStorage.setItem(key, '1');
+    } catch {
+      // stockage indisponible : on accepte (au pire une épingle en double)
+    }
+    return true;
   }
 
   /** Rallume le poste après un blocage d'autoplay (appelé depuis un clic). */

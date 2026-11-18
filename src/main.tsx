@@ -6,6 +6,7 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/qsl.css';
 import './styles/duel.css';
+import './styles/pins.css';
 
 document.title = t.app.tabTitle;
 

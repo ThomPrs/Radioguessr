@@ -21,6 +21,7 @@ import {
   type JoinResponse,
   type RoomView,
 } from '../../shared/duel.js';
+import { cleanLook, type PlayerLook } from '../../shared/avatars.js';
 import { fetchCountries, fetchCountryStations, pickCountry } from '../../shared/radio-browser.js';
 import { haversineKm, roundScore } from '../../shared/scoring.js';
 import type { Continent, HintKind, Station } from '../../shared/types.js';
@@ -85,9 +86,9 @@ async function playerOf(snap: Snapshot, cred: Credentials): Promise<PlayerRecord
   return p && p.tokenHash === (await sha256(cred.token)) ? p : null;
 }
 
-async function newPlayer(name: string, now: number, color: number): Promise<{ record: PlayerRecord; token: string }> {
+async function newPlayer(name: string, now: number, color: number, look: PlayerLook): Promise<{ record: PlayerRecord; token: string }> {
   const token = randomHex(16);
-  return { record: { id: randomHex(8), tokenHash: await sha256(token), name, joinedAt: now, color }, token };
+  return { record: { id: randomHex(8), tokenHash: await sha256(token), name, joinedAt: now, color, avatar: look.avatar, pin: look.pin }, token };
 }
 
 /** Première couleur libre (les couleurs des joueurs partis pendant l'attente sont réutilisées). */
@@ -164,12 +165,13 @@ function systemMessage(text: string, now: number): Omit<ChatMessage, 'id'> {
 
 // ── Opérations ─────────────────────────────────────────────────────────────
 
-export async function createRoom(nameRaw: unknown, now = Date.now(), stations?: Station[][]): Promise<JoinResponse> {
+/** `lookRaw` : avatar et épingle envoyés par le client, nettoyés (valeurs inconnues → défaut). */
+export async function createRoom(nameRaw: unknown, now = Date.now(), stations?: Station[][], lookRaw?: unknown): Promise<JoinResponse> {
   const name = cleanName(nameRaw);
   if (!name) throw new DuelError('bad-request', 400, 'Pseudo manquant');
   const store = getStore();
   const rounds = stations ?? (await pickRoomStations());
-  const { record, token } = await newPlayer(name, now, 0);
+  const { record, token } = await newPlayer(name, now, 0, cleanLook(lookRaw));
 
   for (let attempt = 0; attempt < 8; attempt++) {
     let code = '';
@@ -185,7 +187,7 @@ export async function createRoom(nameRaw: unknown, now = Date.now(), stations?: 
   throw new DuelError('server', 500, 'Impossible de générer un code');
 }
 
-export async function joinRoom(code: string, nameRaw: unknown, cred: Credentials, now = Date.now()): Promise<JoinResponse> {
+export async function joinRoom(code: string, nameRaw: unknown, cred: Credentials, now = Date.now(), lookRaw?: unknown): Promise<JoinResponse> {
   const store = getStore();
   const k = key(code);
   const snap = await load(store, code);
@@ -201,7 +203,7 @@ export async function joinRoom(code: string, nameRaw: unknown, cred: Credentials
     await store.hincrby(k, F.count, -1);
     throw new DuelError('full', 409, 'Salon complet');
   }
-  const { record, token } = await newPlayer(name, now, freeColor(snap));
+  const { record, token } = await newPlayer(name, now, freeColor(snap), cleanLook(lookRaw));
   await store.hset(k, { [F.player(record.id)]: JSON.stringify(record), [F.seen(record.id)]: String(now) });
   await postChat(store, code, systemMessage(`${name} a rejoint le salon.`, now));
   await store.expire(k, ROOM_TTL_SECONDS);

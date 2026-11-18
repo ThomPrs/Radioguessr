@@ -1,5 +1,6 @@
 // Mode Multijoueur : constantes et types échangés entre le serveur (/api) et le navigateur.
 
+import type { Avatar } from './avatars.js';
 import type { HintKind, Station } from './types.js';
 
 export const DUEL_ROUNDS = 5;
@@ -41,6 +42,9 @@ export interface DuelEntry {
 export interface PlayerView {
   id: string;
   name: string;
+  avatar: Avatar;
+  /** Épingle affichée à côté du pseudo. */
+  pin: string | null;
   color: number; // indice dans PLAYER_COLORS
   isHost: boolean;
   connected: boolean;
@@ -106,7 +110,7 @@ export interface JoinResponse {
 }
 
 export type DuelAction =
-  | { action: 'join'; name: string }
+  | { action: 'join'; name: string; avatar?: Avatar; pin?: string | null }
   | { action: 'start' }
   | { action: 'guess'; round: number; lat: number; lon: number }
   | { action: 'hint'; round: number; kind: HintKind }
