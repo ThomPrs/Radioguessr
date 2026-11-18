@@ -1,0 +1,17 @@
+:root {
+  --paper: #ede3cf;
+  --post-blue: #2f5d8c;
+  --stamp-red: #d9483b;
+  --ink: #3a3632;
+
+  --cont-af: #c9822b;
+  --cont-as: #b5473a;
+  --cont-eu: #2f5d8c;
+  --cont-na: #4f7a4a;
+  --cont-sa: #8a5a9e;
+  --cont-oc: #2b8a8a;
+  --cont-an: #7d8a99;
+
+  --font-type: 'Special Elite', 'Courier New', monospace;
+  --font-title: 'Archivo Black', 'Arial Black', sans-serif;
+}

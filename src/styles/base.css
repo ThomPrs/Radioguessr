@@ -1,0 +1,56 @@
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-type);
+  min-height: 100vh;
+}
+h1, h2, h3 { font-family: var(--font-title); font-weight: 400; color: var(--post-blue); }
+button {
+  font: inherit;
+  color: var(--paper);
+  background: var(--post-blue);
+  border: 2px solid var(--ink);
+  padding: 0.5em 1em;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.5; cursor: default; }
+
+.bench { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
+.bench-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0; }
+.bench-status { min-height: 1.5em; }
+.bench-info { background: #fff8; border: 1px dashed var(--ink); padding: 12px; overflow-x: auto; font-size: 0.85rem; }
+
+/* ── Jalon 2 : manche ─────────────────────────────── */
+.round-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 16px;
+  padding: 16px;
+  height: 100vh;
+}
+.round-panel { overflow-y: auto; }
+.round-panel h1 { font-size: 1.4rem; margin-top: 0; }
+.round-map { min-height: 0; border: 2px solid var(--ink); }
+.round-result dt { font-size: 0.85rem; opacity: 0.7; margin-top: 10px; }
+.round-result dd { margin: 2px 0 0; font-size: 1.1rem; }
+.round-points { font-family: var(--font-title); font-size: 2rem !important; color: var(--stamp-red); }
+
+.ink-map {
+  width: 100%;
+  height: 100%;
+  /* Mer : papier légèrement bleuté avec hachures fines, comme une carte imprimée. */
+  background-color: #dfe2d6;
+  background-image: repeating-linear-gradient(0deg, rgb(47 93 140 / 0.08) 0 1px, transparent 1px 6px);
+  font-family: var(--font-type);
+}
+.ink-map.leaflet-container { background-color: #dfe2d6; }
+.ink-map.is-pinnable { cursor: crosshair; }
+.ink-pin, .ink-station { background: none; border: none; }
+.ink-map .leaflet-control-attribution { background: rgb(237 227 207 / 0.8); color: var(--ink); font-size: 10px; }
+.ink-map .leaflet-control-attribution a { color: var(--post-blue); }
+
+@media (max-width: 720px) {
+  .round-layout { grid-template-columns: 1fr; grid-template-rows: auto 60vh; height: auto; }
+}
