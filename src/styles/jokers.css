@@ -357,7 +357,13 @@
   border: 2px dashed rgb(251 246 234 / 0.45);
   border-radius: 4px;
 }
-.jokers-preview-link { font-size: 0.85rem; margin-bottom: 8px; }
+.preview-link { font-size: 0.85rem; margin-bottom: 8px; }
+/* L'aperçu sur la carte est un bouton : l'épingle se soulève au survol */
+.map-preview-button { cursor: pointer; box-shadow: none; font: inherit; color: inherit; margin-bottom: 2px; }
+.map-preview-button .pin-marker { transition: transform 0.15s; }
+.map-preview-button:hover, .map-preview-button:focus-visible { border-color: var(--post-blue); box-shadow: 0 0 0 2px var(--post-blue); }
+.map-preview-button:hover .pin-marker, .map-preview-button:focus-visible .pin-marker { transform: translateY(-5px); }
+.jokers-preview:hover, .jokers-preview:focus-visible { box-shadow: 0 0 0 2px var(--post-blue); }
 .voucher.is-mini { min-height: 52px; --stub: 24px; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.4)); }
 .voucher.is-mini .voucher-stub { padding: 4px 1px; gap: 0; }
 .voucher.is-mini .voucher-body { padding: 8px 6px 6px; justify-content: flex-end; }
@@ -373,6 +379,7 @@
     radial-gradient(circle at var(--stub) 100%, transparent 4px, #000 4.5px) bottom / 100% 51% no-repeat;
 }
 /* Fenêtre de choix des bons */
-.jokers-modal { width: min(760px, 94vw); max-height: 90vh; overflow-y: auto; text-align: left; }
-.jokers-modal-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
-.jokers-modal .joker-hand { grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); }
+.picker-modal { width: min(760px, 94vw); max-height: 90vh; overflow-y: auto; text-align: left; }
+.picker-modal-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+.picker-modal .joker-hand { grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); }
+.pin-board .pin-sheet { margin: 0 0 14px; }

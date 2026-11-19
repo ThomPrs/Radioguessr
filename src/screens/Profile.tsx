@@ -1,16 +1,15 @@
-// Profil : carte de membre du radio-club (pseudo, portrait, fond) et tableau de liège des épingles.
+// Profil : carte de membre du radio-club (pseudo, portrait, fond) ; l'épingle et les jokers se choisissent
+// depuis leurs aperçus, qui ouvrent une fenêtre de choix.
 
 import { useState } from 'preact/hooks';
 import { ACHIEVEMENTS } from '../achievements/catalog';
 import { AVATAR_BGS, AVATAR_FACES } from '../../shared/avatars';
 import { MAX_NAME_LENGTH } from '../../shared/duel';
-import { PINS, RARITY_ORDER, RARITY_WEIGHTS, pinById } from '../../shared/pins';
+import { PINS } from '../../shared/pins';
 import { goHome, showAlbum } from '../app';
-import { clickSound, pinSound } from '../audio/sfx';
+import { clickSound } from '../audio/sfx';
 import { t } from '../i18n/fr';
-import { PinArt } from '../pins/PinArt';
-import { hashString } from '../../shared/rng';
-import { PinMarker } from '../pins/PinMarker';
+import { PinPreview } from '../pins/PinPreview';
 import { JokersPreview } from '../jokers/JokersPreview';
 import { AvatarView } from '../profile/Avatar';
 import { save, updateProfile } from '../state/save';
@@ -19,10 +18,6 @@ export function Profile() {
   const { profile, pins, album, stats } = save.value;
   const [name, setName] = useState(profile.name);
   const owned = PINS.filter((p) => pins[p.id]).length;
-  // Tableau rangé par rareté : une rangée par niveau, de la plus courante à la plus rare.
-  const weightSum = RARITY_ORDER.reduce((sum, r) => sum + RARITY_WEIGHTS[r], 0);
-  const rows = RARITY_ORDER.map((rarity) => ({ rarity, pins: PINS.filter((p) => p.rarity === rarity) }));
-  const current = pinById(profile.pin);
   const stampCount = ACHIEVEMENTS.filter((a) => save.value.achievements[a.id]).length;
 
   const saveName = () => updateProfile({ name });
@@ -65,12 +60,7 @@ export function Profile() {
                 />
               </label>
               <div class="member-previews">
-                <div class="member-preview">
-                  <p class="member-stats-label">{t.profile.preview}</p>
-                  <div class="map-preview" aria-label={t.profile.preview}>
-                    <PinMarker pinId={profile.pin} label={profile.name || undefined} />
-                  </div>
-                </div>
+                <PinPreview />
                 <JokersPreview />
               </div>
               <p class="member-stats">
@@ -115,60 +105,6 @@ export function Profile() {
             />
           ))}
         </div>
-
-        <h2>
-          {t.profile.board} <small class="board-count">{t.pins.count(owned, PINS.length)}</small>
-        </h2>
-        <p class="board-help">
-          <strong>{t.profile.pin}.</strong> {t.profile.pinHelp} {owned <= 1 && t.pins.how}
-        </p>
-        <div class="cork-board">
-          {rows.map(({ rarity, pins: list }) => (
-            <section key={rarity} class={`cork-row rarity-${rarity}`} aria-label={t.pins.rarity[rarity]}>
-              <p class="cork-label">
-                <span class={`rarity-tag rarity-${rarity}`}>{t.pins.rarity[rarity]}</span>
-                <span class="cork-label-chance">{t.pins.chance(Math.round((RARITY_WEIGHTS[rarity] / weightSum) * 100))}</span>
-                <span class="cork-label-owned">{t.pins.ownedIn(list.filter((p) => pins[p.id]).length, list.length)}</span>
-              </p>
-              <div class="cork-grid">
-                {list.map((p) => {
-                  const n = pins[p.id] ?? 0;
-                  return (
-                    <button
-                      key={p.id}
-                      class={`cork-slot rarity-${p.rarity}${n ? '' : ' is-locked'}${profile.pin === p.id ? ' is-selected' : ''}`}
-                      disabled={!n}
-                      title={n ? `${p.name} · ${t.pins.rarity[p.rarity]}` : `${p.name} · ${t.pins.locked}`}
-                      onClick={() => {
-                        pinSound();
-                        updateProfile({ pin: p.id });
-                      }}
-                    >
-                      <span class="cork-pin" style={{ transform: `rotate(${(hashString(p.id) % 25) - 12}deg)` }}>
-                        <PinArt id={p.id} height={70} owned={n > 0} />
-                      </span>
-                      {n > 1 && <span class="cork-count">×{n}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-        </div>
-
-        {current && (
-          <div class={`pin-sheet rarity-${current.rarity}`}>
-            <PinArt id={current.id} height={64} />
-            <div class="pin-sheet-text">
-              <small>{t.profile.pin}</small>
-              <strong>{current.name}</strong>
-              <span class="pin-sheet-tags">
-                <span class={`rarity-tag rarity-${current.rarity}`}>{t.pins.rarity[current.rarity]}</span>
-                <span>{t.pins.copies(pins[current.id] ?? 1)}</span>
-              </span>
-            </div>
-          </div>
-        )}
 
         <p class="profile-stamps-link">
           <button class="link-button" onClick={() => showAlbum('stamps')}>

@@ -164,6 +164,7 @@ export const t = {
     preview: 'Aperçu sur la carte',
     jokersPreview: 'Aperçu des jokers',
     chooseJokers: 'Choisir mes jokers',
+    choosePin: 'Choisir mon épingle',
     saved: 'Enregistré',
     back: 'Accueil',
     homeDesc: (name: string) => (name ? `${name} · pseudo, portrait, épingle` : 'Choisissez votre pseudo, votre portrait et votre épingle'),
