@@ -88,9 +88,9 @@ export function KraftEnvelope({ pin, count, onClose }: Props) {
       </div>
 
       <div class={`kraft-caption${step === 'pinned' ? ' is-visible' : ''}`}>
+        <span class={`kraft-rarity rarity-${pin.rarity}`}>{t.pins.rarity[pin.rarity]}</span>
         <p class="kraft-name">{pin.name}</p>
         <p class="kraft-tags">
-          <span class={`rarity-tag rarity-${pin.rarity}`}>{t.pins.rarity[pin.rarity]}</span>
           <span class={`kraft-dup${count === 1 ? ' is-new' : ''}`}>{count === 1 ? t.pins.newOne : t.pins.duplicate(count)}</span>
         </p>
         {save.value.profile.pin === pin.id ? (

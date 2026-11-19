@@ -130,6 +130,13 @@
   mask: radial-gradient(circle, #000 20%, transparent 68%);
   -webkit-mask: radial-gradient(circle, #000 20%, transparent 68%);
 }
+.kraft-stage.rarity-rare { --glow: rgb(243 215 120 / 0.8); }
+.kraft-stage.rarity-epic { --glow: rgb(199 155 240 / 0.9); }
+.kraft-stage.rarity-legendary { --glow: rgb(255 228 138 / 1); }
+/* La rareté filtre par les bords de l'enveloppe avant l'ouverture (rien pour une commune) */
+.kraft-stage:not(.rarity-common).step-arrive .kraft-envelope,
+.kraft-stage:not(.rarity-common).step-shake .kraft-envelope { box-shadow: 0 18px 40px rgb(0 0 0 / 0.55), 0 0 26px 8px var(--glow); }
+.kraft-stage:is(.rarity-epic, .rarity-legendary).step-shake .kraft-envelope { box-shadow: 0 18px 40px rgb(0 0 0 / 0.55), 0 0 40px 14px var(--glow); }
 .rarity-rare .kraft-burst { --burst: #f3d778; }
 .rarity-epic .kraft-burst { --burst: #c79bf0; }
 .rarity-legendary .kraft-burst { --burst: #ffe48a; }
@@ -140,6 +147,24 @@
 
 .kraft-caption { display: flex; flex-direction: column; align-items: center; gap: 8px; width: min(360px, 90vw); opacity: 0; transition: opacity 0.4s; text-align: center; }
 .kraft-caption.is-visible { opacity: 1; }
+.kraft-rarity {
+  font-family: var(--font-title);
+  font-size: clamp(1.6rem, 7vw, 2.4rem);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 4px 18px;
+  border: 4px double currentColor;
+  background: #fbf6ea;
+  --rot: -6deg;
+  transform: rotate(var(--rot));
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.4);
+}
+.kraft-rarity.rarity-common { color: #6b6f76; }
+.kraft-rarity.rarity-rare { color: #a8841a; }
+.kraft-rarity.rarity-epic { color: #8a5a9e; }
+.kraft-rarity.rarity-legendary { color: #d9483b; background: #f3d778; }
+.kraft-caption.is-visible .kraft-rarity { animation: stamp-thump 0.28s cubic-bezier(0.5, 0, 0.75, 0) both; }
+@media (prefers-reduced-motion: reduce) { .kraft-caption.is-visible .kraft-rarity { animation: none; } }
 .kraft-name { margin: 0; font-family: var(--font-title); font-size: 1.5rem; color: var(--paper); text-shadow: 0 2px 4px rgb(0 0 0 / 0.6); }
 .kraft-tags { margin: 0; display: flex; gap: 10px; align-items: center; justify-content: center; }
 .kraft-tags .rarity-tag { background: var(--paper); }
@@ -201,9 +226,9 @@
 .board-count { font-family: var(--font-type); font-size: 0.9rem; color: var(--ink); opacity: 0.75; }
 .board-help { margin: 0 0 8px; font-size: 0.9rem; opacity: 0.8; }
 .cork-board {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   padding: 16px;
   border: 10px solid #7a4a2c;
   border-radius: 4px;
@@ -227,9 +252,83 @@
   color: #3b2414;
   font-size: 0.8rem;
 }
+/* Une rangée par rareté, avec son étiquette punaisée */
+.cork-row { --rar: #6b6f76; --rar-glow: transparent; }
+.cork-row.rarity-rare, .pin-sheet.rarity-rare { --rar: #a8841a; --rar-glow: rgb(243 215 120 / 0.55); }
+.cork-row.rarity-epic, .pin-sheet.rarity-epic { --rar: #8a5a9e; --rar-glow: rgb(199 155 240 / 0.6); }
+.cork-row.rarity-legendary, .pin-sheet.rarity-legendary { --rar: #d9483b; --rar-glow: rgb(255 228 138 / 0.85); }
+.cork-row + .cork-row { padding-top: 12px; border-top: 2px dashed rgb(59 36 20 / 0.35); }
+.cork-label {
+  position: relative;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0 0 8px;
+  padding: 6px 12px 6px 14px;
+  background: #fbf6ea;
+  border-left: 6px solid var(--rar);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.3);
+  transform: rotate(-1deg);
+  font-size: 0.8rem;
+  color: var(--ink);
+}
+.cork-label::before { /* punaise qui tient l'étiquette */
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ff8a7a, #8f2a20);
+  border: 1px solid #3a3632;
+}
+.cork-label .rarity-tag { background: #fbf6ea; }
+.cork-label .rarity-tag.rarity-legendary { background: #f3d778; }
+.cork-label-chance { font-style: italic; opacity: 0.8; }
+.cork-label-owned { font-family: var(--font-title); }
+.cork-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 10px; }
+/* Cadre de la couleur de la rareté : plein si possédée, pointillés pâles sinon */
+.cork-slot { border: 2px solid var(--rar); background: rgb(251 246 234 / 0.18); }
+.cork-slot.is-locked { border-style: dashed; border-color: color-mix(in srgb, var(--rar) 45%, transparent); background: none; }
+.cork-row.rarity-epic .cork-slot:not(.is-locked),
+.cork-row.rarity-legendary .cork-slot:not(.is-locked) { background: radial-gradient(circle at 50% 40%, var(--rar-glow), transparent 70%); }
+.cork-row.rarity-legendary .cork-slot:not(.is-locked) { overflow: hidden; }
+.cork-row.rarity-legendary .cork-slot:not(.is-locked)::after { /* reflet doré qui passe */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 35%, rgb(255 241 184 / 0.6) 50%, transparent 65%) no-repeat;
+  background-size: 250% 100%;
+  animation: gold-sheen 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes gold-sheen { from { background-position: 130% 0; } 60%, to { background-position: -30% 0; } }
+@media (prefers-reduced-motion: reduce) { .cork-row.rarity-legendary .cork-slot::after { animation: none; display: none; } }
+
+/* Fiche de l'épingle choisie */
+.pin-sheet {
+  --rar: #6b6f76;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 10px 16px;
+  background: #fbf6ea;
+  border-left: 8px solid var(--rar);
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.3);
+  color: var(--ink);
+}
+.pin-sheet .pin-art { filter: drop-shadow(0 0 8px var(--rar-glow, transparent)); }
+.pin-sheet-text { display: flex; flex-direction: column; gap: 4px; }
+.pin-sheet-text small { opacity: 0.7; }
+.pin-sheet-text strong { font-family: var(--font-title); font-size: 1.1rem; }
+.pin-sheet-tags { display: flex; gap: 10px; align-items: center; font-size: 0.85rem; }
+
 .cork-slot:not(:disabled):hover .cork-pin { transform: rotate(0deg) translateY(-3px) !important; }
 .cork-pin { display: inline-block; line-height: 0; transform-origin: 50% 97%; transition: transform 0.15s; }
-.cork-slot.is-selected { border-color: var(--stamp-red); border-style: solid; background: rgb(255 255 255 / 0.25); }
+.cork-slot.is-selected { border-color: var(--stamp-red); border-style: solid; border-width: 3px; box-shadow: 0 0 0 2px #fbf6ea; }
 .cork-slot:disabled { opacity: 1; cursor: default; }
 .cork-none { font-style: italic; border-color: rgb(59 36 20 / 0.4); }
 .cork-count {
