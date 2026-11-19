@@ -396,6 +396,22 @@ describe('jokers', () => {
     expect(b.chat.at(-1)?.text).toBe('Alice joue « Pickpocket » sur Bob. Le Bouclier de Bob l’arrête !');
   });
 
+  it('Bouclier actif toute la partie : joué à la manche 1, il arrête une attaque à la manche 2, une seule fois', async () => {
+    const t = await setupJokers([['brouilleur', 'taxe'], ['bouclier'], []]);
+    await play(bob, 'bouclier', t + 10);
+    for (const who of [alice, bob, carol]) await act(code, who, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 20);
+    for (const who of [alice, bob, carol]) await act(code, who, { action: 'ready', round: 0 }, t + 30);
+    const t2 = t + 1000;
+    expect((await getRoom(code, alice, t2)).round?.index).toBe(1);
+    await play(alice, 'brouilleur', t2 + 10, { target: bob.playerId!, round: 1 });
+    const b = await getRoom(code, bob, t2 + 20);
+    expect(b.round?.you.jokers.attacks).toEqual([]);
+    expect(b.chat.at(-1)?.text).toBe('Alice joue « Brouilleur » sur Bob. Le Bouclier de Bob l’arrête !');
+    // Le Bouclier est usé : l'attaque suivante passe.
+    await play(alice, 'taxe', t2 + 30, { target: bob.playerId!, round: 1 });
+    expect((await getRoom(code, bob, t2 + 40)).round?.you.jokers.attacks.map((a) => a.id)).toEqual(['taxe']);
+  });
+
   it('Bouclier non déclenché : absent de l’historique public', async () => {
     const t = await setupJokers([[], ['bouclier'], []]);
     await play(bob, 'bouclier', t + 10);

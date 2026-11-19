@@ -367,7 +367,7 @@ export const t = {
       taxe: 'Le prochain indice acheté par un adversaire coûte double.',
       espion: 'Voyez où un adversaire a posé son épingle, dès qu’il l’a validée.',
       pickpocket: 'Volez 500 points à un adversaire sur la manche.',
-      bouclier: 'Annule le prochain joker lancé contre vous pendant la manche.',
+      bouclier: 'Annule le prochain joker lancé contre vous pendant la partie.',
     } as Record<string, string>,
   },
   reactions: {

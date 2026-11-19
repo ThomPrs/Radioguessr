@@ -463,9 +463,10 @@ export async function act(code: string, cred: Credentials, body: DuelAction, now
       const play: JokerPlay = { pid, id: j.id, round: i, target: j.target === 'opponent' ? target : null, at: now };
       if (j.id === 'seconde') play.probeKm = haversineKm({ lat, lon }, activeStation(snap, i));
       const victim = play.target ? playerById(snap, play.target) : undefined;
-      // Bouclier de la cible : il arrête la première attaque de la manche (le joker de l'attaquant est perdu).
-      if (victim && plays.some((p) => p.pid === victim.id && p.id === 'bouclier' && p.round === i)) {
-        if (await store.hsetnx(k, F.shieldUsed(i, victim.id), pid)) play.blocked = true;
+      // Bouclier de la cible, joué dans cette manche ou une précédente : il arrête la prochaine attaque
+      // de la partie, une seule fois (le joker de l'attaquant est perdu).
+      if (victim && plays.some((p) => p.pid === victim.id && p.id === 'bouclier')) {
+        if (await store.hsetnx(k, F.shieldUsed(victim.id), pid)) play.blocked = true;
       }
       if (!(await store.hsetnx(k, F.joker(pid, j.id), JSON.stringify(play)))) break; // déjà joué (double clic)
       if (j.id === 'taxe' && victim && !play.blocked) await store.hincrby(k, F.taxPending(victim.id), 1);

@@ -94,7 +94,7 @@ export const F = {
   joker: (pid: string, id: string) => `jk:${pid}:${id}`, // une seule fois par partie (HSETNX)
   taxPending: (pid: string) => `tax:${pid}`, // Taxes reçues, pas encore appliquées
   taxed: (i: number, pid: string) => `r${i}:tax:${pid}`, // indice taxé dans la manche
-  shieldUsed: (i: number, pid: string) => `r${i}:shield:${pid}`,
+  shieldUsed: (pid: string) => `shield:${pid}`, // le Bouclier ne sert qu'une fois dans la partie
 };
 
 // ── Jokers ─────────────────────────────────────────────────────────────────
@@ -508,10 +508,9 @@ function recentReaction(snap: Snapshot, pid: string, now: number): { kind: React
 
 /** Jokers d'une manche vus par tous, avec les points volés (jamais plus que la manche de la cible). */
 function publicPlays(plays: JokerPlay[], i: number, entries: Record<string, DuelEntry>): PublicPlay[] {
-  // Un Bouclier n'est public que s'il a arrêté une attaque (sinon, personne ne doit savoir qu'il a été joué).
-  const shieldUsed = (p: JokerPlay) => plays.some((a) => a.round === i && a.target === p.pid && a.blocked);
+  // Le Bouclier reste secret : seule l'attaque qu'il arrête (blocked) apparaît, dans la manche où elle a eu lieu.
   return plays
-    .filter((p) => p.round === i && (p.id !== 'bouclier' || shieldUsed(p)))
+    .filter((p) => p.round === i && p.id !== 'bouclier')
     .map((p) => ({
       pid: p.pid,
       id: p.id,
