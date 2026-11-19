@@ -7,6 +7,7 @@ import type { Continent } from '../../shared/types';
 import { formatKm } from '../format';
 import { t } from '../i18n/fr';
 import { Vignette } from './vignette';
+import { paletteOf } from '../../shared/country-look';
 
 export const CONTINENT_ACCENT: Record<Continent, string> = {
   AF: '#c9822b',
@@ -40,7 +41,8 @@ interface Props {
 
 export function QslCardView({ card, flippable = true, initialSide = 'front', frontOverlay }: Props) {
   const [flipped, setFlipped] = useState(initialSide === 'back');
-  const accent = CONTINENT_ACCENT[card.continent];
+  // Liseré et détails aux couleurs du drapeau (couleur du continent si le pays est inconnu).
+  const accent = paletteOf(card.countryCode, CONTINENT_ACCENT[card.continent]).accent;
   const style = { '--accent': accent } as Record<string, string>;
   const rot = ((card.artSeed % 7) - 3) * 1.5; // tampon un peu de travers, propre à chaque carte
 
@@ -69,7 +71,7 @@ export function QslCardView({ card, flippable = true, initialSide = 'front', fro
             <span class="qsl-badge">{t.qsl.rarity[card.rarity]}</span>
           </div>
           <div class="qsl-art">
-            <Vignette seed={card.artSeed} accent={accent} rarity={card.rarity} lat={card.lat} />
+            <Vignette seed={card.artSeed} accent={CONTINENT_ACCENT[card.continent]} rarity={card.rarity} lat={card.lat} countryCode={card.countryCode} />
           </div>
           <div class="qsl-front-bottom">
             <span class="qsl-station-name">{card.stationName}</span>
