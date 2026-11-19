@@ -16,7 +16,8 @@ export const t = {
     album: 'Album QSL',
     profile: 'Mon profil',
     settings: 'Réglages',
-    albumDesc: (n: number) => (n === 0 ? 'Aucune carte pour l’instant' : `${n} carte${n > 1 ? 's' : ''} QSL rangée${n > 1 ? 's' : ''}`),
+    albumDesc: (n: number, stamps: number) =>
+      `${n === 0 ? 'Aucune carte pour l’instant' : `${n} carte${n > 1 ? 's' : ''} QSL`} · ${stamps} tampon${stamps > 1 ? 's' : ''}`,
     stats: (games: number, cards: number) => `${games} partie${games > 1 ? 's' : ''} · ${cards} carte${cards > 1 ? 's' : ''} QSL`,
   },
   radio: {
@@ -163,7 +164,7 @@ export const t = {
     saved: 'Enregistré',
     back: 'Accueil',
     homeDesc: (name: string) => (name ? `${name} · pseudo, portrait, épingle` : 'Choisissez votre pseudo, votre portrait et votre épingle'),
-    homeStamps: (n: number) => `${n} tampon${n > 1 ? 's' : ''}`,
+    seeStamps: (n: number) => `Voir mon carnet de tampons (${n})`,
     noName: 'Sans indicatif',
   },
   news: {
@@ -275,6 +276,8 @@ export const t = {
     close: 'Fermer',
     flipHint: 'Cliquez sur la carte pour la retourner.',
     showMissing: 'Afficher les pays manquants',
+    tabCards: 'Cartes QSL',
+    tabStamps: 'Tampons',
   },
   stamps: {
     board: 'Mon carnet de tampons',

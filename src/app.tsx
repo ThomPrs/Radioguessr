@@ -17,7 +17,7 @@ import { Settings } from './screens/Settings';
 
 type Screen =
   | { name: 'home' }
-  | { name: 'album' }
+  | { name: 'album'; tab: AlbumTab }
   | { name: 'settings' }
   | { name: 'profile' }
   | { name: 'duel-lobby'; code: string }
@@ -54,9 +54,11 @@ export function goHome(): void {
   screen.value = { name: 'home' };
 }
 
-export function showAlbum(): void {
+export type AlbumTab = 'cards' | 'stamps';
+
+export function showAlbum(tab: AlbumTab = 'cards'): void {
   goHome();
-  screen.value = { name: 'album' };
+  screen.value = { name: 'album', tab };
 }
 
 export function showProfile(): void {
@@ -94,7 +96,7 @@ export function App() {
     case 'recap':
       return <Recap game={s.game} />;
     case 'album':
-      return <Album />;
+      return <Album initialTab={s.tab} />;
     case 'settings':
       return <Settings />;
     case 'profile':

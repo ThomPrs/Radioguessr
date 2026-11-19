@@ -69,3 +69,33 @@
 /* Récapitulatif solo : enveloppe gagnée ou points manquants */
 .recap-prize { margin: 4px 0 10px; font-size: 0.9rem; font-style: italic; opacity: 0.85; }
 .recap-prize.is-won { font-style: normal; font-weight: bold; color: var(--stamp-red); opacity: 1; }
+
+/* Album : onglets de classeur « Cartes QSL » / « Tampons » */
+.album-tabs { display: flex; gap: 6px; margin: 4px 0 14px; border-bottom: 2px solid var(--ink); flex-wrap: wrap; }
+.album-tabs button {
+  position: relative;
+  margin-bottom: -2px;
+  padding: 8px 16px 6px;
+  font-family: var(--font-title);
+  font-size: 1rem;
+  color: var(--ink);
+  background: #e9dfc8;
+  border: 2px solid var(--ink);
+  border-bottom-color: transparent;
+  border-radius: 10px 10px 0 0;
+  opacity: 0.75;
+}
+.album-tabs button.is-active { background: #fbf6ea; border-bottom-color: #fbf6ea; opacity: 1; }
+.album-tabs button small { display: block; font-family: var(--font-type); font-size: 0.75rem; color: var(--stamp-red); }
+.album-tab-dot {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--stamp-red);
+  border: 2px solid #fbf6ea;
+}
+.album-subheader { margin-bottom: 4px; }
+.profile-stamps-link { margin: 18px 0 0; }

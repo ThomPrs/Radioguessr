@@ -6,7 +6,9 @@ import { continentOf, countryNameFr } from '../../shared/countries';
 import { CONTINENT_FR } from '../../shared/hints';
 import type { QslCard } from '../../shared/qsl';
 import type { Continent } from '../../shared/types';
-import { goHome } from '../app';
+import { goHome, type AlbumTab } from '../app';
+import { ACHIEVEMENTS } from '../achievements/catalog';
+import { StampBook, hasNewStamps } from '../achievements/StampBook';
 import { t } from '../i18n/fr';
 import { QslCardView } from '../qsl/QslCardView';
 import { save, updatePrefs } from '../state/save';
@@ -32,7 +34,15 @@ function buildSlots(album: Record<string, QslCard>): Slot[] {
   return slots.sort((a, b) => collator.compare(a.name, b.name));
 }
 
-export function Album() {
+export function Album({ initialTab = 'cards' }: { initialTab?: AlbumTab }) {
+  const [tab, setTab] = useState<AlbumTab>(initialTab);
+  const stampCount = ACHIEVEMENTS.filter((a) => save.value.achievements[a.id]).length;
+  // Pastille « nouveaux tampons » : elle s'éteint dès qu'on a ouvert le carnet.
+  const [freshStamps] = useState(hasNewStamps);
+  const [bookSeen, setBookSeen] = useState(initialTab === 'stamps');
+  useEffect(() => {
+    if (tab === 'stamps') setBookSeen(true);
+  }, [tab]);
   const album = save.value.album;
   const [filter, setFilter] = useState<Continent | 'all'>('all');
   const [open, setOpen] = useState<QslCard | null>(null);
@@ -56,7 +66,23 @@ export function Album() {
           ← {t.album.back}
         </button>
         <h1>{t.album.title}</h1>
-        <span class="album-count">{t.album.count(owned, slots.length)}</span>
+      </header>
+
+      <div class="album-tabs" role="tablist">
+        <button role="tab" aria-selected={tab === 'cards'} class={tab === 'cards' ? 'is-active' : ''} onClick={() => setTab('cards')}>
+          {t.album.tabCards} <small>{t.album.count(owned, slots.length)}</small>
+        </button>
+        <button role="tab" aria-selected={tab === 'stamps'} class={tab === 'stamps' ? 'is-active' : ''} onClick={() => setTab('stamps')}>
+          {t.album.tabStamps} <small>{t.stamps.count(stampCount, ACHIEVEMENTS.length)}</small>
+          {freshStamps && !bookSeen && <span class="album-tab-dot" aria-label={t.stamps.isNew} />}
+        </button>
+      </div>
+
+      {tab === 'stamps' ? (
+        <StampBook />
+      ) : (
+      <>
+      <header class="album-header album-subheader">
         <label class="album-toggle">
           <input
             type="checkbox"
@@ -104,6 +130,8 @@ export function Album() {
           );
         })}
       </ul>
+      </>
+      )}
 
       {open && (
         <div class="modal" role="dialog" aria-modal="true" aria-label={open.country} onClick={() => setOpen(null)}>
