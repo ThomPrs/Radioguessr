@@ -40,6 +40,8 @@ export interface Round {
   /** Carte QSL méritée par ce rapport (distance < 1 500 km), et son sort dans l'album. */
   card: QslCard | null;
   qsl: 'new' | 'upgraded' | 'kept' | null;
+  /** Jokers joués pendant la manche. */
+  jokers?: string[];
 }
 
 export interface Game {

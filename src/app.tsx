@@ -42,7 +42,8 @@ export function startWorldGame(): void {
   const current = screen.value;
   if (current.name === 'game') current.game.dispose();
   // Options de la partie : mémorisées dans les préférences (fiche « Options de la partie »).
-  const game = new SoloGame({ breakingNews: save.peek().prefs.breakingNews });
+  const { breakingNews, jokers } = save.peek().prefs;
+  const game = new SoloGame({ breakingNews, jokers });
   screen.value = { name: 'game', game };
   void game.start(); // appelé depuis le clic : l'autoplay est autorisé
 }

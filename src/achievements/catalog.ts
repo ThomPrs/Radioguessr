@@ -2,6 +2,7 @@
 // Chaque succès se vérifie sur la sauvegarde, et éventuellement sur la partie qui vient de se terminer.
 
 import type { NewsAnswer } from '../../shared/blindtest';
+import { JOKERS } from '../../shared/jokers';
 import { PINS } from '../../shared/pins';
 import type { Continent } from '../../shared/types';
 import type { SaveData } from '../state/save';
@@ -92,6 +93,8 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'pin-legendary', family: 'collection', mark: '★', check: (c) => ownedPins(c).some((p) => p.rarity === 'legendary') },
   { id: 'games-10', family: 'collection', mark: '10', check: (c) => games(c) >= 10 },
   { id: 'games-50', family: 'collection', mark: '50', check: (c) => games(c) >= 50 },
+  { id: 'jokers-10', family: 'collection', mark: 'J', check: (c) => c.save.jokersPlayed >= 10 },
+  { id: 'jokers-all', family: 'collection', mark: '12', check: (c) => JOKERS.every((j) => c.save.jokers[j.id]) },
 ];
 
 /** Succès remplis dans ce contexte et pas encore obtenus. */

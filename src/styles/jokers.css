@@ -8,8 +8,7 @@
   max-width: 320px;
   min-height: 132px;
   color: var(--ink);
-  background-color: #fbf6ea;
-  background-image: var(--paper-grain);
+  /* Le papier est porté par le talon et le corps : un talon arraché ne laisse rien derrière lui. */
   filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.3));
   /* Encoches rondes en haut et en bas de la ligne de perforation */
   --stub: 74px;
@@ -39,7 +38,8 @@
   gap: 8px;
   padding: 10px 4px;
   border-right: 2px dashed rgb(58 54 50 / 0.55);
-  background: color-mix(in srgb, var(--rar) 14%, transparent);
+  background-color: #fbf6ea;
+  background-image: linear-gradient(color-mix(in srgb, var(--rar) 14%, transparent), color-mix(in srgb, var(--rar) 14%, transparent)), var(--paper-grain);
 }
 .voucher-serial { font-family: var(--font-type); font-size: 0.65rem; letter-spacing: 0.05em; writing-mode: vertical-rl; transform: rotate(180deg); opacity: 0.75; }
 .voucher-blank-icon { font-family: var(--font-title); font-size: 1.6rem; opacity: 0.4; }
@@ -50,12 +50,18 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: 6px;
-  padding: 8px 10px 6px;
+  padding: 14px 16px 12px;
+  background-color: #fbf6ea;
+  background-image: var(--guilloche), var(--paper-grain);
+}
+.voucher-body::before { /* cadre double de la couleur de la rareté */
+  content: '';
+  position: absolute;
+  inset: 6px;
   border: 1.5px solid var(--rar);
   outline: 1px solid var(--rar);
   outline-offset: -5px;
-  background-image: var(--guilloche);
+  pointer-events: none;
 }
 .voucher-for { font-family: var(--font-title); font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--rar); }
 .voucher-name { font-family: var(--font-title); font-size: 1.15rem; line-height: 1.1; padding-right: 48px; }
@@ -63,8 +69,8 @@
 .voucher-valid { margin-top: auto; padding-top: 4px; font-size: 0.65rem; font-style: italic; opacity: 0.7; }
 .voucher-kind {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 10px;
+  right: 10px;
   padding: 1px 6px;
   font-family: var(--font-title);
   font-size: 0.6rem;
@@ -172,3 +178,49 @@
 .mail-stage .kraft-pin { width: min(320px, 82vw); }
 .mail-stage .kraft-pin .voucher { margin: 0 auto; }
 .voucher.is-compact .voucher-effect { font-size: 0.7rem; }
+
+/* Fiche de départ solo : la main */
+.setup-hand { display: flex; flex-direction: column; gap: 8px; align-items: stretch; margin: 0 0 10px; }
+.setup-hand .voucher { max-width: none; }
+.joker-option { border-color: rgb(47 93 140 / 0.5); }
+
+/* ── En partie : bons posés sur le bureau ──────────────────────────────── */
+.joker-tray { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.joker-tray-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 8px; }
+.joker-play { padding: 0; background: none; border: none; box-shadow: none; text-align: left; transition: transform 0.15s; }
+.joker-play:nth-child(1) { transform: rotate(-1.5deg); }
+.joker-play:nth-child(2) { transform: rotate(1.2deg); }
+.joker-play:not(:disabled):hover, .joker-play.is-armed { transform: translateY(-4px) rotate(0); }
+.joker-play.is-armed .voucher { filter: drop-shadow(0 0 0 2px var(--stamp-red)) drop-shadow(0 6px 8px rgb(0 0 0 / 0.4)); }
+.joker-play:disabled { opacity: 1; cursor: default; }
+.joker-play .voucher { max-width: none; }
+.joker-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  background: #fbf6ea;
+  border-left: 5px solid var(--stamp-red);
+  color: var(--ink);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.3);
+}
+.joker-confirm p { margin: 0; flex: 1 1 100%; font-size: 0.9rem; }
+.joker-note { display: block; margin-top: 4px; color: #ffe48a; font-weight: bold; }
+.solo-timer { margin: 6px 0 2px; }
+
+/* Joker Brouillard : la carte se noie dans la brume */
+.leaflet-container.is-foggy::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 450;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 20% 30%, rgb(240 236 228 / 0.9), transparent 55%),
+    radial-gradient(ellipse at 75% 65%, rgb(232 228 220 / 0.92), transparent 60%),
+    rgb(236 232 224 / 0.86);
+  backdrop-filter: blur(6px);
+  animation: fog-drift 9s ease-in-out infinite alternate;
+}
+@keyframes fog-drift { to { background-position: 10% 0, -10% 0, 0 0; opacity: 0.94; } }

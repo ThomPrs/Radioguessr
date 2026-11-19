@@ -20,6 +20,9 @@ import type { SoloGame } from '../game/solo';
 import { t } from '../i18n/fr';
 import type { InkMap } from '../map/ink-map';
 import { QslCardView } from '../qsl/QslCardView';
+import { JokerTray } from '../jokers/JokerTray';
+import { RADAR_RADIUS_KM, jokerById } from '../../shared/jokers';
+import { ROUND_TIME_MS } from '../../shared/duel';
 import { motionDelay } from '../state/prefs';
 
 const HINT_ORDER: HintKind[] = ['language', 'continent', 'timezone'];
@@ -34,6 +37,28 @@ export function GameScreen({ game }: { game: SoloGame }) {
   const round = game.lastRound.value;
   const index = game.roundIndex.value;
   const news = game.news.value;
+  const deadline = game.deadline.value;
+  const radar = game.radar.value;
+  const probe = game.probe.value;
+  const [, tick] = useState(0);
+
+  // Chrono : rafraîchi 4 fois par seconde pendant l'écoute.
+  useEffect(() => {
+    if (deadline == null) return;
+    const id = setInterval(() => tick((n) => n + 1), 250);
+    return () => clearInterval(id);
+  }, [deadline]);
+
+  // Joker Radar : le cercle apparaît sur la carte.
+  useEffect(() => {
+    if (radar) map.current?.showRadar(radar, RADAR_RADIUS_KM);
+  }, [radar]);
+
+  // Fin du chrono : la manche a été validée d'office, on joue la révélation.
+  useEffect(() => {
+    const r = game.autoRound.value;
+    if (r) void afterSubmit(r);
+  }, [game.autoRound.value]);
 
   useEffect(() => {
     const m = map.current;
@@ -46,7 +71,10 @@ export function GameScreen({ game }: { game: SoloGame }) {
 
   async function submit() {
     const r = game.submit();
-    if (!r?.guess) return;
+    if (r) await afterSubmit(r);
+  }
+
+  async function afterSubmit(r: Round) {
     map.current?.reveal(r.station, r.guess);
     if (r.card && (r.qsl === 'new' || r.qsl === 'upgraded')) {
       await motionDelay(1400); // laisse le temps de voir l'arc sur la carte
@@ -101,9 +129,18 @@ export function GameScreen({ game }: { game: SoloGame }) {
         <RadioSet state={radioState} dial={game.dial.value} label={radioLabel} />
         <RadioControls canPause={phase === 'listening' || phase === 'revealed'} />
 
+        {phase === 'listening' && deadline != null && (
+          <div class="duel-timer solo-timer" role="timer" aria-label={t.duel.timeLeft(Math.ceil(Math.max(0, deadline - Date.now()) / 1000))}>
+            <div class="duel-timer-bar" style={{ transform: `scaleX(${Math.min(1, Math.max(0, deadline - Date.now()) / ROUND_TIME_MS)})` }} />
+            <span>{t.duel.timeLeft(Math.ceil(Math.max(0, deadline - Date.now()) / 1000))}</span>
+          </div>
+        )}
+
         <p class="desk-note" aria-live="polite">
           {phase === 'tuning' && t.radio.searchingLong}
           {phase === 'listening' && (guess ? t.map.movePin : t.map.placePin)}
+          {phase === 'listening' && radar && <span class="joker-note">{t.jokers.radarNote}</span>}
+          {phase === 'listening' && probe != null && <span class="joker-note">{t.jokers.probe(formatKm(probe))}</span>}
           {phase === 'error' && (
             <>
               {game.error.value === 'no-station' ? t.radio.noStation : t.radio.unreachable}{' '}
@@ -134,16 +171,29 @@ export function GameScreen({ game }: { game: SoloGame }) {
                   {isUsed ? (
                     <span class="hint-used">
                       <Typewriter class="hint-value" text={hintValue(kind)} speed={28} />
-                      <span class="hint-paid">{t.hints.paid(formatInt(HINT_COST[kind]))}</span>
+                      <span class="hint-paid">
+                        {(round?.index === index ? round.jokers ?? [] : game.roundJokers.value).includes('indices') ? t.hints.free : t.hints.paid(formatInt(HINT_COST[kind]))}
+                      </span>
                     </span>
                   ) : (
-                    <span class="hint-cost">{unavailable ? t.hints.unknown : t.hints.cost(HINT_COST[kind])}</span>
+                    <span class="hint-cost">
+                      {unavailable ? t.hints.unknown : game.roundJokers.value.includes('indices') ? t.hints.free : t.hints.cost(HINT_COST[kind])}
+                    </span>
                   )}
                 </button>
               );
             })}
-            {phase === 'listening' && used.length > 0 && <p class="hint-total">{t.hints.totalCost(formatInt(hintsCost(used)))}</p>}
+            {phase === 'listening' && used.length > 0 && !game.roundJokers.value.includes('indices') && <p class="hint-total">{t.hints.totalCost(formatInt(hintsCost(used)))}</p>}
           </div>
+        )}
+
+        {(phase === 'listening' || phase === 'revealed') && game.hand.length > 0 && (
+          <JokerTray
+            jokers={game.hand}
+            used={game.jokersUsed.value}
+            check={(id) => (void game.guess.value, void game.phase.value, game.jokerCheck(id))}
+            onPlay={(id) => game.playJoker(id)}
+          />
         )}
 
         {phase === 'listening' && (
@@ -212,12 +262,15 @@ function ReportSlip({ round }: { round: Round }) {
     [t.qsl.location, [round.station.state, countryNameFr(round.station.countryCode)].filter(Boolean).join(', ')],
     [t.round.distance, round.distanceKm != null ? formatKm(round.distanceKm) : '—'],
   ];
-  const cost = hintsCost(round.hints);
+  const cost = (round.jokers ?? []).includes('indices') ? 0 : hintsCost(round.hints);
   if (cost > 0) {
     lines.push([t.round.rawPoints, formatInt(round.rawScore)]);
     lines.push([t.round.hintsPenalty, `−${formatInt(cost)}`]);
   }
-  const floored = cost > 0 && round.rawScore - cost < 0;
+  const jokers = round.jokers ?? [];
+  if (jokers.length) lines.push([t.jokers.reportLine, jokers.map((id) => jokerById(id)?.name ?? id).join(', ')]);
+  const floored = cost > 0 && round.rawScore - cost < 0 && !jokers.length;
+  const scoreJokers = jokers.filter((id) => t.jokers.effectShort[id]);
 
   // Chaque ligne commence quand la précédente est finie (≈ 30 ms par caractère).
   let delay = 200;
@@ -242,7 +295,13 @@ function ReportSlip({ round }: { round: Round }) {
       </dl>
       <p class="report-points">
         <Typewriter
-          text={cost > 0 && !floored ? `${formatInt(round.rawScore)} − ${formatInt(cost)} = ${formatInt(round.score)} pts` : `${formatInt(round.score)} pts`}
+          text={
+            scoreJokers.length
+              ? `${formatInt(round.score)} pts (${scoreJokers.map((id) => t.jokers.effectShort[id]).join(', ')})`
+              : cost > 0 && !floored
+                ? `${formatInt(round.rawScore)} − ${formatInt(cost)} = ${formatInt(round.score)} pts`
+                : `${formatInt(round.score)} pts`
+          }
           delay={delay}
           speed={45}
           onDone={typeBell}

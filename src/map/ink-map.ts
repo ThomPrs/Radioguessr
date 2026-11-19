@@ -205,6 +205,25 @@ export class InkMap {
     if (points.length > 0) this.map.fitBounds(L.latLngBounds(points).pad(0.2), { maxZoom: 5 });
   }
 
+  /** Joker Radar : cercle (en km) dans lequel se trouve la station. */
+  showRadar(center: LatLon, radiusKm: number): void {
+    const circle = L.circle([center.lat, center.lon], {
+      radius: radiusKm * 1000,
+      color: POST_BLUE,
+      weight: 2,
+      dashArray: '8 6',
+      fillColor: POST_BLUE,
+      fillOpacity: 0.08,
+      interactive: false,
+    }).addTo(this.overlay);
+    this.map.flyToBounds(circle.getBounds().pad(0.15), { maxZoom: 5, duration: 0.8 });
+  }
+
+  /** Joker Brouillard : la carte est noyée dans la brume (effet dessiné en CSS). */
+  setFog(on: boolean): void {
+    this.map.getContainer().classList.toggle('is-foggy', on);
+  }
+
   /** Remet la carte à zéro pour une nouvelle manche. */
   reset(): void {
     this.overlay.clearLayers();

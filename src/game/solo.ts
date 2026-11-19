@@ -2,7 +2,7 @@
 
 import { computed, signal } from '@preact/signals';
 import { computeHints, type StationHints, type ZoneRow } from '../../shared/hints';
-import { haversineKm, ROUNDS_PER_GAME, roundScore, type LatLon } from '../../shared/scoring';
+import { haversineKm, ROUNDS_PER_GAME, type LatLon } from '../../shared/scoring';
 import type { Game, HintKind, Round, Station } from '../../shared/types';
 import { RadioPlayer } from '../audio/radio';
 import { startStatic, stopStatic } from '../audio/sfx';
@@ -12,8 +12,18 @@ import { NEWS_INTRO_MS, NEWS_LISTEN_MS, pickNewsSlot, type NewsAnswer, type Trac
 import { musicApi } from '../music/client';
 import { drawPin, SOLO_PRIZE_SCORE, type PinDef } from '../../shared/pins';
 import type { AchievementDef } from '../achievements/catalog';
-import type { JokerDef } from '../../shared/jokers';
-import { awardPin, collectCard, recordGame, tickMail, unlockAchievements } from '../state/save';
+import {
+  ANTENNA_BONUS_MS,
+  canPlay,
+  playableIn,
+  radarCenter,
+  scoreWithJokers,
+  type JokerDef,
+  type JokerId,
+  type PlayRefusal,
+} from '../../shared/jokers';
+import { ROUND_TIME_MS } from '../../shared/duel';
+import { awardPin, collectCard, countJokerPlayed, recordGame, save, tickMail, unlockAchievements } from '../state/save';
 import { nearestCity, preloadPlaces } from './places';
 import { StationPool } from './station-pool';
 
@@ -33,6 +43,8 @@ export interface SoloNews {
 
 export interface SoloOptions {
   breakingNews: boolean;
+  /** Cartes Joker activées (la main vient du profil). */
+  jokers?: boolean;
 }
 
 let zonesPromise: Promise<ZoneRow[]> | null = null;
@@ -75,6 +87,19 @@ export class SoloGame {
   readonly newStamps = signal<AchievementDef[]>([]);
   /** Courrier : bon Joker reçu à la fin de cette partie. */
   readonly mail = signal<JokerDef | null>(null);
+  /** Fin du chrono de la manche en cours (ms), null hors écoute. */
+  readonly deadline = signal<number | null>(null);
+  /** Manche validée d'office à la fin du chrono (l'écran joue alors la révélation). */
+  readonly autoRound = signal<Round | null>(null);
+  /** Jokers : main jouable en solo, jokers déjà joués, jokers actifs sur la manche en cours. */
+  readonly hand: JokerDef[];
+  readonly jokersEnabled: boolean;
+  readonly jokersUsed = signal<JokerId[]>([]);
+  readonly roundJokers = signal<JokerId[]>([]);
+  /** Radar : centre du cercle ; Seconde écoute : distance de l'épingle à la station. */
+  readonly radar = signal<LatLon | null>(null);
+  readonly probe = signal<number | null>(null);
+  private roundTimer: ReturnType<typeof setTimeout> | null = null;
   /** Manche (0..3) après laquelle tombe la Breaking News ; -1 si désactivée. */
   private readonly newsAfter: number;
   private newsTimers: ReturnType<typeof setTimeout>[] = [];
@@ -92,6 +117,8 @@ export class SoloGame {
 
   constructor(options: SoloOptions = { breakingNews: false }) {
     this.newsAfter = options.breakingNews ? pickNewsSlot() : -1;
+    this.jokersEnabled = options.jokers ?? false;
+    this.hand = this.jokersEnabled ? playableIn('solo', save.peek().hand) : [];
   }
   readonly lastRound = computed<Round | null>(() => this.game.value.rounds.at(-1) ?? null);
 
@@ -107,6 +134,10 @@ export class SoloGame {
     this.guess.value = null;
     this.hints.value = null;
     this.usedHints.value = [];
+    this.roundJokers.value = [];
+    this.radar.value = null;
+    this.probe.value = null;
+    this.clearTimer();
     this.station = null;
     this.dial.value = null;
     startStatic();
@@ -119,6 +150,7 @@ export class SoloGame {
       // Tests automatisés uniquement : absent du build de production (import.meta.env.DEV = false).
       if (import.meta.env.DEV) Object.assign(window, { __rgDebugStation: station, __rgGame: this });
       this.hints.value = computeHints(station, zones);
+      this.startTimer(ROUND_TIME_MS);
       this.phase.value = 'listening';
       this.game.value = { ...this.game.value, phase: 'listening' };
     } catch (err) {
@@ -145,24 +177,79 @@ export class SoloGame {
     this.usedHints.value = [...this.usedHints.value, kind];
   }
 
+  // ── Chrono ───────────────────────────────────────────────────────────────
+
+  private startTimer(ms: number): void {
+    this.clearTimer();
+    const end = Date.now() + ms;
+    this.deadline.value = end;
+    this.roundTimer = setTimeout(() => this.timeUp(), ms);
+  }
+
+  private clearTimer(): void {
+    if (this.roundTimer) clearTimeout(this.roundTimer);
+    this.roundTimer = null;
+    this.deadline.value = null;
+  }
+
+  /** Fin du chrono : l'épingle posée est validée d'office ; sans épingle, la manche vaut 0. */
+  private timeUp(): void {
+    if (this.disposed || this.phase.value !== 'listening') return;
+    this.autoRound.value = this.submit(true);
+  }
+
+  // ── Jokers ───────────────────────────────────────────────────────────────
+
+  /** Peut-on jouer ce joker maintenant ? (règles partagées avec le serveur) */
+  jokerCheck(id: JokerId): { ok: true } | { ok: false; reason: PlayRefusal } {
+    return canPlay(id, {
+      mode: 'solo',
+      enabled: this.jokersEnabled,
+      hand: this.hand.map((j) => j.id),
+      used: this.jokersUsed.value,
+      listening: this.phase.value === 'listening' && this.station != null,
+      guessed: false,
+      pinPlaced: this.guess.value != null,
+    });
+  }
+
+  playJoker(id: JokerId): boolean {
+    if (!this.jokerCheck(id).ok) return false;
+    const station = this.station!;
+    this.jokersUsed.value = [...this.jokersUsed.value, id];
+    this.roundJokers.value = [...this.roundJokers.value, id];
+    countJokerPlayed();
+    if (id === 'radar') this.radar.value = radarCenter(station);
+    if (id === 'seconde' && this.guess.value) this.probe.value = haversineKm(this.guess.value, station);
+    if (id === 'antenne' && this.deadline.value != null) this.startTimer(this.deadline.value - Date.now() + ANTENNA_BONUS_MS);
+    return true;
+  }
+
   /** Envoie le rapport d'écoute et révèle la station. Renvoie la manche jouée. */
-  submit(): Round | null {
+  submit(timedOut = false): Round | null {
     const station = this.station;
     const guess = this.guess.value;
-    if (this.phase.value !== 'listening' || !station || !guess) return null;
-    const distanceKm = haversineKm(guess, station);
-    const { raw, score } = roundScore(distanceKm, this.usedHints.value);
-    const card = createQslCard({ station, distanceKm, city: nearestCity(station) });
+    if (this.phase.value !== 'listening' || !station || (!guess && !timedOut)) return null;
+    this.clearTimer();
+    const distanceKm = guess ? haversineKm(guess, station) : null;
+    const active = this.roundJokers.value;
+    const { raw, score } = scoreWithJokers(distanceKm, this.usedHints.value, {
+      double: active.includes('double'),
+      floor: active.includes('filet'),
+      freeHints: active.includes('indices'),
+    });
+    const card = distanceKm != null ? createQslCard({ station, distanceKm, city: nearestCity(station) }) : null;
     const round: Round = {
       index: this.game.value.current,
       station,
       hints: this.usedHints.value,
-      guess: { ...guess, at: Date.now() },
+      guess: guess ? { ...guess, at: Date.now() } : null,
       distanceKm,
       rawScore: raw,
       score,
       card,
       qsl: card ? collectCard(card) : null,
+      jokers: active.length ? active : undefined,
     };
     this.game.value = { ...this.game.value, rounds: [...this.game.value.rounds, round], phase: 'revealed' };
     this.phase.value = 'revealed';
@@ -271,6 +358,7 @@ export class SoloGame {
 
   dispose(): void {
     this.disposed = true;
+    this.clearTimer();
     this.newsTimers.forEach(clearTimeout);
     stopStatic();
     this.player.stop();
