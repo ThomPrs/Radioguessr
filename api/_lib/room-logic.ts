@@ -495,8 +495,10 @@ export function buildView(snap: Snapshot, pid: string, now: number, chatSince = 
 
 /** Jokers d'une manche vus par tous, avec les points volés (jamais plus que la manche de la cible). */
 function publicPlays(plays: JokerPlay[], i: number, entries: Record<string, DuelEntry>): PublicPlay[] {
+  // Un Bouclier n'est public que s'il a arrêté une attaque (sinon, personne ne doit savoir qu'il a été joué).
+  const shieldUsed = (p: JokerPlay) => plays.some((a) => a.round === i && a.target === p.pid && a.blocked);
   return plays
-    .filter((p) => p.round === i)
+    .filter((p) => p.round === i && (p.id !== 'bouclier' || shieldUsed(p)))
     .map((p) => ({
       pid: p.pid,
       id: p.id,

@@ -390,9 +390,12 @@ export async function act(code: string, cred: Credentials, body: DuelAction, now
       }
       if (!(await store.hsetnx(k, F.joker(pid, j.id), JSON.stringify(play)))) break; // déjà joué (double clic)
       if (j.id === 'taxe' && victim && !play.blocked) await store.hincrby(k, F.taxPending(victim.id), 1);
-      const on = victim ? ` sur ${victim.name}` : '';
-      const stop = play.blocked ? ` Le Bouclier de ${victim!.name} l’arrête !` : '';
-      await postChat(store, code, systemMessage(`${me.name} joue « ${j.name} »${on}.${stop}`, now));
+      // Le Bouclier reste secret : on ne l'annonce qu'au moment où il arrête une attaque.
+      if (j.id !== 'bouclier') {
+        const on = victim ? ` sur ${victim.name}` : '';
+        const stop = play.blocked ? ` Le Bouclier de ${victim!.name} l’arrête !` : '';
+        await postChat(store, code, systemMessage(`${me.name} joue « ${j.name} »${on}.${stop}`, now));
+      }
       break;
     }
     case 'skip': {

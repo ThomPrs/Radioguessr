@@ -187,14 +187,6 @@ export function GameScreen({ game }: { game: SoloGame }) {
           </div>
         )}
 
-        {(phase === 'listening' || phase === 'revealed') && game.hand.length > 0 && (
-          <JokerTray
-            jokers={game.hand}
-            used={game.jokersUsed.value}
-            check={(id) => (void game.guess.value, void game.phase.value, game.jokerCheck(id))}
-            onPlay={(id) => void game.playJoker(id)}
-          />
-        )}
 
         {phase === 'listening' && (
           <button class="stamp-button" onClick={() => void submit()} disabled={!guess}>
@@ -212,6 +204,14 @@ export function GameScreen({ game }: { game: SoloGame }) {
       </section>
 
       <section class="game-map map-sheet">
+        {(phase === 'listening' || phase === 'revealed') && game.hand.length > 0 && (
+          <JokerTray
+            jokers={game.hand}
+            used={game.jokersUsed.value}
+            check={(id) => (void game.guess.value, void game.phase.value, game.jokerCheck(id))}
+            onPlay={(id) => void game.playJoker(id)}
+          />
+        )}
         <MapView
           onReady={(m) => {
             map.current = m;

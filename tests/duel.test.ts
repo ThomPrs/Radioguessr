@@ -386,10 +386,23 @@ describe('jokers', () => {
     const c = await getRoom(code, carol, t + 2000);
     expect(c.round?.you.jokers.attacks).toEqual([{ id: 'brouilleur', from: alice.playerId, until: t + 1000 + 10_000 }]);
     await play(bob, 'bouclier', t + 3000);
+    // Bouclier secret : rien dans le chat tant qu'il ne s'est pas déclenché.
+    const before = await getRoom(code, alice, t + 3500);
+    expect(before.chat.some((m) => m.text.includes('Bouclier'))).toBe(false);
     await play(alice, 'pickpocket', t + 4000, { target: bob.playerId! });
     const b = await getRoom(code, bob, t + 5000);
     expect(b.round?.you.jokers.attacks).toEqual([]);
     expect(b.chat.at(-1)?.text).toBe('Alice joue « Pickpocket » sur Bob. Le Bouclier de Bob l’arrête !');
+  });
+
+  it('Bouclier non déclenché : absent de l’historique public', async () => {
+    const t = await setupJokers([[], ['bouclier'], []]);
+    await play(bob, 'bouclier', t + 10);
+    for (const who of [alice, bob, carol]) await act(code, who, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 20);
+    const a = await getRoom(code, alice, t + 30);
+    expect(a.history[0]?.plays).toEqual([]);
+    expect(a.chat.some((m) => m.text.includes('Bouclier'))).toBe(false);
+    expect((await getRoom(code, bob, t + 40)).myJokers.used).toEqual(['bouclier']);
   });
 
   it('Pickpocket : 500 points passent de la cible au voleur', async () => {

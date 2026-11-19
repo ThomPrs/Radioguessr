@@ -184,21 +184,85 @@
 .setup-hand .voucher { max-width: none; }
 .joker-option { border-color: rgb(47 93 140 / 0.5); }
 
-/* ── En partie : bons posés sur le bureau ──────────────────────────────── */
-.joker-tray { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
-.joker-tray-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 8px; }
-.joker-play { padding: 0; background: none; border: none; box-shadow: none; text-align: left; transition: transform 0.15s; }
-.joker-play:nth-child(1) { transform: rotate(-1.5deg); }
-.joker-play:nth-child(2) { transform: rotate(1.2deg); }
-.joker-play:not(:disabled):hover, .joker-play.is-armed { transform: translateY(-4px) rotate(0); }
-.joker-play.is-armed .voucher { filter: drop-shadow(0 0 0 2px var(--stamp-red)) drop-shadow(0 6px 8px rgb(0 0 0 / 0.4)); }
+/* ── En partie : bons rangés en bas à droite de la carte ─────────────── */
+.joker-dock {
+  position: absolute;
+  right: 18px;
+  bottom: 0;
+  z-index: 950; /* au-dessus de la carte et du brouillard, sous le zoom (1000) et les fenêtres (2000) */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: calc(100% - 36px);
+  pointer-events: none; /* seuls les bons, l'étiquette et la confirmation captent la souris */
+}
+.joker-dock > * { pointer-events: auto; }
+.joker-dock-hand {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  padding: 34px 6px 0;
+  overflow: hidden; /* le bas des bons rangés est caché sous le bord de la carte */
+  pointer-events: none;
+}
+.joker-dock-tab {
+  position: absolute;
+  right: 10px;
+  bottom: 50px;
+  z-index: 1;
+  padding: 2px 10px;
+  font-family: var(--font-title);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--paper);
+  background: var(--stamp-red);
+  border: none;
+  border-radius: 4px 4px 0 0;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.3);
+  pointer-events: auto;
+  transition: opacity 0.2s;
+}
+.joker-play {
+  width: 210px;
+  flex: none;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  text-align: left;
+  pointer-events: auto;
+  /* Rangé : seul le haut du bon dépasse */
+  transform: translateY(calc(100% - 46px)) rotate(var(--fan, 0deg));
+  transition: transform 0.25s cubic-bezier(0.3, 0.9, 0.4, 1);
+}
+.joker-dock:hover .joker-play,
+.joker-dock:focus-within .joker-play,
+.joker-dock.is-open .joker-play { transform: translateY(-6px) rotate(calc(var(--fan, 0deg) * 0.4)); }
+.joker-dock:hover .joker-dock-tab,
+.joker-dock:focus-within .joker-dock-tab,
+.joker-dock.is-open .joker-dock-tab { opacity: 0; }
+.joker-dock.is-open .joker-dock-tab { visibility: hidden; pointer-events: none; }
+.joker-dock-close { /* tactile : referme le paquet ouvert d'un appui sur l'étiquette */
+  padding: 2px 10px;
+  font-family: var(--font-title);
+  font-size: 0.75rem;
+  color: var(--paper);
+  background: var(--stamp-red);
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.3);
+}
+.joker-play:not(:disabled):hover .voucher, .joker-play.is-armed .voucher { transform: translateY(-4px); }
+.joker-play .voucher { max-width: none; transition: transform 0.15s; }
+.joker-play.is-armed .voucher { filter: drop-shadow(0 0 3px var(--stamp-red)) drop-shadow(0 6px 8px rgb(0 0 0 / 0.4)); }
 .joker-play:disabled { opacity: 1; cursor: default; }
-.joker-play .voucher { max-width: none; }
 .joker-confirm {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
+  max-width: 420px;
   padding: 8px 12px;
   background: #fbf6ea;
   border-left: 5px solid var(--stamp-red);
@@ -206,6 +270,12 @@
   box-shadow: 0 3px 8px rgb(0 0 0 / 0.3);
 }
 .joker-confirm p { margin: 0; flex: 1 1 100%; font-size: 0.9rem; }
+.joker-dock-error { margin: 0; background: #fbf6ea; padding: 4px 8px; }
+@media (max-width: 700px) {
+  .joker-dock { right: 6px; transform: scale(0.85); transform-origin: bottom right; }
+  .joker-play { width: 180px; }
+}
+@media (prefers-reduced-motion: reduce) { .joker-play { transition: none; } }
 .joker-note { display: block; margin-top: 4px; color: #ffe48a; font-weight: bold; }
 .solo-timer { margin: 6px 0 2px; }
 
@@ -217,10 +287,10 @@
   z-index: 900; /* au-dessus des tracés, sous les boutons de zoom */
   pointer-events: none;
   background:
-    radial-gradient(ellipse at 20% 30%, rgb(240 236 228 / 0.55), transparent 55%),
-    radial-gradient(ellipse at 75% 65%, rgb(232 228 220 / 0.6), transparent 60%),
-    rgb(236 232 224 / 0.62);
-  backdrop-filter: blur(3px);
+    radial-gradient(ellipse at 20% 30%, rgb(250 248 242 / 0.9), transparent 55%),
+    radial-gradient(ellipse at 75% 65%, rgb(226 222 214 / 0.9), transparent 60%),
+    rgb(236 232 224 / 0.97);
+  backdrop-filter: blur(14px);
   animation: fog-drift 9s ease-in-out infinite alternate;
 }
 @keyframes fog-drift { to { background-position: 10% 0, -10% 0, 0 0; opacity: 0.94; } }

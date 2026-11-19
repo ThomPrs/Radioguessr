@@ -316,6 +316,8 @@ export const t = {
     someForbidden: 'Les bons « multi » ne servent qu’en multijoueur : ils resteront dans votre poche.',
     changeHand: 'Changer ma main',
     tray: 'Mes jokers',
+    dockTab: (n: number) => `Jokers · ${n}`,
+    dockClose: 'Ranger mes jokers ▾',
     play: 'Jouer',
     confirm: (name: string) => `Jouer « ${name} » sur cette manche ?`,
     yes: 'Oui, je le joue',

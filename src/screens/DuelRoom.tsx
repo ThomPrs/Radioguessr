@@ -400,29 +400,6 @@ function Playing({ session, view }: { session: DuelSession; view: RoomView }) {
           </div>
         )}
 
-        {listening && hand.length > 0 && (
-          <JokerTray
-            jokers={hand}
-            used={view.myJokers.used}
-            targets={opponents.map((p) => ({ id: p.id, name: p.name, color: PLAYER_COLORS[p.color]! }))}
-            busy={session.busy.value}
-            error={session.jokerError.value}
-            check={(id, target) =>
-              canPlay(id, {
-                mode: 'duel',
-                enabled: view.jokersEnabled,
-                hand: view.myJokers.hand,
-                used: view.myJokers.used,
-                listening: listening && now <= myDeadline,
-                guessed: r.you.guessed,
-                pinPlaced: pending != null,
-                target,
-                opponents: opponents.map((p) => p.id),
-              })
-            }
-            onPlay={(id, target) => void session.playJoker(id, target)}
-          />
-        )}
 
         {listening && !r.you.guessed && (
           <button class="stamp-button" disabled={!pending || session.busy.value} onClick={() => void session.submit()}>
@@ -481,6 +458,29 @@ function Playing({ session, view }: { session: DuelSession; view: RoomView }) {
       <section class="game-map map-sheet">
         {/* Brouillard : la carte est noyée toute la manche (on peut quand même planter son épingle) */}
         {foggy && <div class="map-fog" aria-hidden="true" />}
+        {listening && hand.length > 0 && (
+          <JokerTray
+            jokers={hand}
+            used={view.myJokers.used}
+            targets={opponents.map((p) => ({ id: p.id, name: p.name, color: PLAYER_COLORS[p.color]! }))}
+            busy={session.busy.value}
+            error={session.jokerError.value}
+            check={(id, target) =>
+              canPlay(id, {
+                mode: 'duel',
+                enabled: view.jokersEnabled,
+                hand: view.myJokers.hand,
+                used: view.myJokers.used,
+                listening: listening && now <= myDeadline,
+                guessed: r.you.guessed,
+                pinPlaced: pending != null,
+                target,
+                opponents: opponents.map((p) => p.id),
+              })
+            }
+            onPlay={(id, target) => void session.playJoker(id, target)}
+          />
+        )}
         <MapView
           onReady={(m) => {
             map.current = m;
