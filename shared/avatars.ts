@@ -24,6 +24,24 @@ export const AVATAR_BGS = ['#2f5d8c', '#d9483b', '#4f7a4a', '#c9822b', '#8a5a9e'
 export interface Avatar {
   face: AvatarFace;
   bg: number; // indice dans AVATAR_BGS
+  /** Photo du joueur (JPEG 96 × 96 en data URL), gardée même quand le portrait dessiné est choisi. */
+  photo?: string;
+  /** La photo remplace le portrait dessiné. */
+  usePhoto?: boolean;
+  /** Effet « photo de presse » (noir et blanc tramé, teinté du fond). */
+  press?: boolean;
+  /** Vue multijoueur : le joueur a une photo (envoyée à part, voir ?photos=1). */
+  hasPhoto?: boolean;
+}
+
+/** Taille maximale d'une photo encodée (data URL), pour garder les échanges légers. */
+export const MAX_PHOTO_LENGTH = 12_000;
+const PHOTO_PREFIX = 'data:image/jpeg;base64,';
+
+/** Photo valide (JPEG en base64, taille bornée), sinon null. */
+export function cleanPhoto(raw: unknown): string | null {
+  if (typeof raw !== 'string' || !raw.startsWith(PHOTO_PREFIX) || raw.length > MAX_PHOTO_LENGTH) return null;
+  return /^[A-Za-z0-9+/]+=*$/.test(raw.slice(PHOTO_PREFIX.length)) ? raw : null;
 }
 
 export const DEFAULT_AVATAR: Avatar = { face: 'operatrice', bg: 0 };
@@ -36,10 +54,20 @@ export interface PlayerLook {
 
 /** Nettoie une apparence reçue d'un client : valeurs inconnues → valeurs par défaut. */
 export function cleanLook(raw: unknown): PlayerLook {
-  const r = (raw && typeof raw === 'object' ? raw : {}) as { avatar?: { face?: unknown; bg?: unknown }; pin?: unknown };
+  const r = (raw && typeof raw === 'object' ? raw : {}) as {
+    avatar?: { face?: unknown; bg?: unknown; photo?: unknown; usePhoto?: unknown; press?: unknown };
+    pin?: unknown;
+  };
   const face = AVATAR_FACES.includes(r.avatar?.face as AvatarFace) ? (r.avatar!.face as AvatarFace) : DEFAULT_AVATAR.face;
   const bgNum = Number(r.avatar?.bg);
   const bg = Number.isInteger(bgNum) && bgNum >= 0 && bgNum < AVATAR_BGS.length ? bgNum : DEFAULT_AVATAR.bg;
   const pin = normalizePinId(r.pin) ?? STARTER_PIN;
-  return { avatar: { face, bg }, pin };
+  const photo = cleanPhoto(r.avatar?.photo);
+  const avatar: Avatar = { face, bg };
+  if (photo) {
+    avatar.photo = photo;
+    if (r.avatar?.usePhoto === true) avatar.usePhoto = true;
+  }
+  if (r.avatar?.press === true) avatar.press = true;
+  return { avatar, pin };
 }

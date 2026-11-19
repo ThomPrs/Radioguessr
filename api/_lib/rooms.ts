@@ -98,9 +98,32 @@ async function playerOf(snap: Snapshot, cred: Credentials): Promise<PlayerRecord
   return p && p.tokenHash === (await sha256(cred.token)) ? p : null;
 }
 
-async function newPlayer(name: string, now: number, color: number, look: PlayerLook, hand: JokerId[] = []): Promise<{ record: PlayerRecord; token: string }> {
+async function newPlayer(name: string, now: number, color: number, look: PlayerLook, hand: JokerId[] = []): Promise<{ record: PlayerRecord; token: string; photo: string | null }> {
   const token = randomHex(16);
-  return { record: { id: randomHex(8), tokenHash: await sha256(token), name, joinedAt: now, color, avatar: look.avatar, pin: look.pin, hand }, token };
+  // La photo n'est pas dans la fiche (lue à chaque rafraîchissement) : elle est rangée à part.
+  const { photo, usePhoto, ...rest } = look.avatar;
+  const shown = photo && usePhoto ? photo : null;
+  const avatar = { ...rest, ...(shown ? { hasPhoto: true } : {}) };
+  return { record: { id: randomHex(8), tokenHash: await sha256(token), name, joinedAt: now, color, avatar, pin: look.pin, hand }, token, photo: shown };
+}
+
+const photosKey = (code: string) => `room:${code}:photos`;
+
+async function savePhoto(store: Store, code: string, pid: string, photo: string | null): Promise<void> {
+  if (!photo) return;
+  await store.hset(photosKey(code), { [pid]: photo });
+  await store.expire(photosKey(code), ROOM_TTL_SECONDS);
+}
+
+/** Photos des joueurs du salon (demandées une fois, puis gardées en cache par le navigateur). */
+export async function getPhotos(code: string, cred: Credentials): Promise<{ photos: Record<string, string> }> {
+  const store = getStore();
+  const snap = await load(store, code);
+  if (!(await playerOf(snap, cred))) throw new DuelError('forbidden', 403);
+  const all = (await store.hgetall(photosKey(code))) ?? {};
+  // Seulement les joueurs encore dans le salon.
+  const photos = Object.fromEntries(Object.entries(all).filter(([pid]) => snap.players.some((p) => p.id === pid)));
+  return { photos };
 }
 
 /** Main de jokers reçue d'un client (la possession des cartes n'est pas vérifiable : comme l'épingle). */
@@ -209,7 +232,7 @@ export async function createRoom(nameRaw: unknown, now = Date.now(), stations?: 
   if (!name) throw new DuelError('bad-request', 400, 'Pseudo manquant');
   const store = getStore();
   const rounds = stations ?? (await pickRoomStations());
-  const { record, token } = await newPlayer(name, now, 0, cleanLook(lookRaw), handFrom(lookRaw));
+  const { record, token, photo } = await newPlayer(name, now, 0, cleanLook(lookRaw), handFrom(lookRaw));
 
   for (let attempt = 0; attempt < 8; attempt++) {
     let code = '';
@@ -220,6 +243,7 @@ export async function createRoom(nameRaw: unknown, now = Date.now(), stations?: 
     if (!(await store.hsetnx(key(code), F.meta, JSON.stringify(meta)))) continue; // code déjà pris
     await store.hset(key(code), { [F.player(record.id)]: JSON.stringify(record), [F.seen(record.id)]: String(now), [F.count]: '1' });
     await store.expire(key(code), ROOM_TTL_SECONDS);
+    await savePhoto(store, code, record.id, photo);
     return { code, playerId: record.id, token };
   }
   throw new DuelError('server', 500, 'Impossible de générer un code');
@@ -241,8 +265,9 @@ export async function joinRoom(code: string, nameRaw: unknown, cred: Credentials
     await store.hincrby(k, F.count, -1);
     throw new DuelError('full', 409, 'Salon complet');
   }
-  const { record, token } = await newPlayer(name, now, freeColor(snap), cleanLook(lookRaw), handFrom(lookRaw));
+  const { record, token, photo } = await newPlayer(name, now, freeColor(snap), cleanLook(lookRaw), handFrom(lookRaw));
   await store.hset(k, { [F.player(record.id)]: JSON.stringify(record), [F.seen(record.id)]: String(now) });
+  await savePhoto(store, code, record.id, photo);
   await postChat(store, code, systemMessage(`${name} a rejoint le salon.`, now));
   await store.expire(k, ROOM_TTL_SECONDS);
   return { code, playerId: record.id, token };

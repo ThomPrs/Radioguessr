@@ -105,7 +105,39 @@ export class DuelSession {
     if (fresh.some((m) => m.kind === 'msg' && m.pid !== this.id.playerId)) typeClick();
   }
 
-  private apply(v: RoomView): void {
+  // ── Photos des joueurs : demandées une fois à part, puis gardées ici ──
+  private photos = new Map<string, string>();
+  private photosLoading = false;
+  private photosTried = new Set<string>();
+
+  /** Ajoute aux joueurs leur photo connue ; demande au serveur celles qui manquent (une seule fois). */
+  private withPhotos(v: RoomView): RoomView {
+    const missing = v.players.filter((p) => p.avatar.hasPhoto && !this.photos.has(p.id) && !this.photosTried.has(p.id));
+    if (missing.length && !this.photosLoading) {
+      this.photosLoading = true;
+      for (const p of missing) this.photosTried.add(p.id);
+      void api
+        .photos(this.id)
+        .then(({ photos }) => {
+          for (const [pid, url] of Object.entries(photos)) this.photos.set(pid, url);
+          const cur = this.view.peek();
+          if (cur) this.view.value = this.withPhotos(cur);
+        })
+        .catch(() => undefined)
+        .finally(() => (this.photosLoading = false));
+    }
+    if (!v.players.some((p) => this.photos.has(p.id))) return v;
+    return {
+      ...v,
+      players: v.players.map((p) => {
+        const photo = this.photos.get(p.id);
+        return photo && p.avatar.hasPhoto ? { ...p, avatar: { ...p.avatar, photo } } : p;
+      }),
+    };
+  }
+
+  private apply(raw: RoomView): void {
+    const v = this.withPhotos(raw);
     const prev = this.view.value;
     this.view.value = v;
     this.mergeChat(v.chat);

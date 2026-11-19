@@ -1,6 +1,7 @@
 // Portraits d'opérateurs radio (SVG), sur un fond de couleur au choix.
 
 import type { JSX } from 'preact';
+import { useId } from 'preact/hooks';
 import { AVATAR_BGS, DEFAULT_AVATAR, type Avatar, type AvatarFace } from '../../shared/avatars';
 
 const INK = '#3a3632';
@@ -31,6 +32,7 @@ interface Props {
 
 export function AvatarView({ avatar, size = 48, title }: Props) {
   const a = avatar ?? DEFAULT_AVATAR;
+  if (a.photo && a.usePhoto !== false && (a.usePhoto || a.hasPhoto)) return <PhotoAvatar avatar={a} size={size} title={title} />;
   const skin = SKIN[a.face];
   return (
     <svg class="avatar" viewBox="0 0 100 100" width={size} height={size} role="img" aria-label={title ?? a.face}>
@@ -202,4 +204,45 @@ function Face({ face, skin }: { face: AvatarFace; skin: string }): JSX.Element {
         </g>
       );
   }
+}
+
+/**
+ * Photo du joueur dans le cercle d'encre. Effet « photo de presse » : niveaux de gris passés en
+ * bichromie encre / papier, teinte de la couleur de fond, trame de points par-dessus.
+ */
+function PhotoAvatar({ avatar: a, size, title }: { avatar: Avatar; size: number; title?: string | undefined }) {
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
+  const bg = AVATAR_BGS[a.bg] ?? AVATAR_BGS[0];
+  return (
+    <svg class="avatar is-photo" viewBox="0 0 100 100" width={size} height={size} role="img" aria-label={title ?? 'photo'}>
+      <defs>
+        <clipPath id={`avc-${uid}`}>
+          <circle cx="50" cy="50" r="48" />
+        </clipPath>
+        {a.press && (
+          <>
+            <filter id={`avf-${uid}`} x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB">
+              <feColorMatrix type="saturate" values="0" result="gray" />
+              <feComponentTransfer in="gray" result="duo">
+                <feFuncR type="table" tableValues="0.227 0.93" />
+                <feFuncG type="table" tableValues="0.212 0.89" />
+                <feFuncB type="table" tableValues="0.196 0.81" />
+              </feComponentTransfer>
+              <feFlood flood-color={bg} flood-opacity="0.45" result="tint" />
+              <feBlend in="duo" in2="tint" mode="multiply" />
+            </filter>
+            <pattern id={`avp-${uid}`} width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <circle cx="1.5" cy="1.5" r="0.75" fill={INK} opacity="0.3" />
+            </pattern>
+          </>
+        )}
+      </defs>
+      <g clip-path={`url(#avc-${uid})`}>
+        <rect width="100" height="100" fill={a.press ? PAPER : bg} />
+        <image href={a.photo} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" filter={a.press ? `url(#avf-${uid})` : undefined} />
+        {a.press && <rect width="100" height="100" fill={`url(#avp-${uid})`} />}
+      </g>
+      <circle cx="50" cy="50" r="47" fill="none" stroke={INK} stroke-width="3" />
+    </svg>
+  );
 }

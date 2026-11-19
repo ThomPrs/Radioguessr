@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { act, createRoom, getRoom, joinRoom, type Credentials } from '../api/_lib/rooms';
+import { act, createRoom, getPhotos, getRoom, joinRoom, type Credentials } from '../api/_lib/rooms';
+import { cleanLook } from '../shared/avatars';
 import { MemoryStore, findRedisEnv, setStore } from '../api/_lib/store';
 import { ABANDON_MS, CHAT_KEEP, COUNTDOWN_MS, MAX_PLAYERS, REVEAL_TIME_MS, ROUND_TIME_MS, rankPlayers } from '../shared/duel';
 import type { Station } from '../shared/types';
@@ -440,5 +441,32 @@ describe('jokers', () => {
     const b = await getRoom(code, bob, t + 70);
     expect(b.round?.you.jokers.probeKm).toBeCloseTo(111, 0);
     expect(b.round?.you.jokers.radar).toBeNull();
+  });
+});
+
+describe('photo de profil', () => {
+  const PHOTO = 'data:image/jpeg;base64,' + 'A'.repeat(4000);
+
+  it('validation : JPEG en base64, taille bornée', () => {
+    expect(cleanLook({ avatar: { face: 'robot', bg: 1, photo: PHOTO, usePhoto: true } }).avatar).toMatchObject({ photo: PHOTO, usePhoto: true });
+    expect(cleanLook({ avatar: { photo: 'data:image/png;base64,AAAA' } }).avatar.photo).toBeUndefined();
+    expect(cleanLook({ avatar: { photo: 'data:image/jpeg;base64,' + 'A'.repeat(20_000) } }).avatar.photo).toBeUndefined();
+    expect(cleanLook({ avatar: { photo: 'data:image/jpeg;base64,<script>' } }).avatar.photo).toBeUndefined();
+    expect(cleanLook({ avatar: { photo: 42 } }).avatar.photo).toBeUndefined();
+  });
+
+  it('rangée à part : absente de la vue, renvoyée par ?photos=1 aux joueurs du salon', async () => {
+    const h = await createRoom('Alice', T0, ROUNDS, { avatar: { face: 'robot', bg: 1, photo: PHOTO, usePhoto: true, press: true } });
+    code = h.code;
+    alice = cred(h);
+    bob = cred(await joinRoom(code, 'Bob', NOBODY, T0 + 100, { avatar: { face: 'chat', bg: 2, photo: PHOTO } })); // photo non choisie
+    const v = await getRoom(code, bob, T0 + 200);
+    expect(JSON.stringify(v)).not.toContain('base64');
+    expect(v.players.map((p) => p.avatar)).toEqual([
+      { face: 'robot', bg: 1, press: true, hasPhoto: true },
+      { face: 'chat', bg: 2 },
+    ]);
+    expect(await getPhotos(code, bob)).toEqual({ photos: { [alice.playerId!]: PHOTO } });
+    await expect(getPhotos(code, { playerId: alice.playerId, token: 'faux' })).rejects.toMatchObject({ code: 'forbidden' });
   });
 });

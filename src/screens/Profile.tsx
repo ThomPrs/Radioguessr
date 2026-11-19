@@ -10,6 +10,7 @@ import { goHome, showAlbum } from '../app';
 import { clickSound } from '../audio/sfx';
 import { t } from '../i18n/fr';
 import { PinPreview } from '../pins/PinPreview';
+import { PhotoPicker } from '../profile/PhotoPicker';
 import { JokersPreview } from '../jokers/JokersPreview';
 import { AvatarView } from '../profile/Avatar';
 import { save, updateProfile } from '../state/save';
@@ -75,18 +76,22 @@ export function Profile() {
           {AVATAR_FACES.map((face) => (
             <button
               key={face}
-              class={`avatar-choice${profile.avatar.face === face ? ' is-selected' : ''}`}
+              class={`avatar-choice${profile.avatar.face === face && !profile.avatar.usePhoto ? ' is-selected' : ''}`}
               role="radio"
-              aria-checked={profile.avatar.face === face}
+              aria-checked={profile.avatar.face === face && !profile.avatar.usePhoto}
               onClick={() => {
                 clickSound();
-                updateProfile({ avatar: { ...profile.avatar, face } });
+                // Choisir un portrait dessiné : la photo reste gardée, mais n'est plus affichée.
+                updateProfile({ avatar: { ...profile.avatar, face, usePhoto: false } });
               }}
             >
               <AvatarView avatar={{ face, bg: profile.avatar.bg }} size={64} />
             </button>
           ))}
         </div>
+
+        <h2>{t.photo.title}</h2>
+        <PhotoPicker />
 
         <h2>{t.profile.background}</h2>
         <div class="bg-swatches" role="radiogroup" aria-label={t.profile.background}>
