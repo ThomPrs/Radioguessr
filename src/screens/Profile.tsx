@@ -11,7 +11,7 @@ import { t } from '../i18n/fr';
 import { PinArt } from '../pins/PinArt';
 import { hashString } from '../../shared/rng';
 import { PinMarker } from '../pins/PinMarker';
-import { JokerDeck } from '../jokers/JokerDeck';
+import { JokersPreview } from '../jokers/JokersPreview';
 import { AvatarView } from '../profile/Avatar';
 import { save, updateProfile } from '../state/save';
 
@@ -64,9 +64,14 @@ export function Profile() {
                   onKeyDown={(e) => e.key === 'Enter' && saveName()}
                 />
               </label>
-              <p class="member-stats-label">{t.profile.preview}</p>
-              <div class="map-preview" aria-label={t.profile.preview}>
-                <PinMarker pinId={profile.pin} label={profile.name || undefined} />
+              <div class="member-previews">
+                <div class="member-preview">
+                  <p class="member-stats-label">{t.profile.preview}</p>
+                  <div class="map-preview" aria-label={t.profile.preview}>
+                    <PinMarker pinId={profile.pin} label={profile.name || undefined} />
+                  </div>
+                </div>
+                <JokersPreview />
               </div>
               <p class="member-stats">
                 {Object.keys(album).length} QSL · {t.pins.count(owned, PINS.length)} · {stats.duels.won} victoire{stats.duels.won > 1 ? 's' : ''}
@@ -164,8 +169,6 @@ export function Profile() {
             </div>
           </div>
         )}
-
-        <JokerDeck />
 
         <p class="profile-stamps-link">
           <button class="link-button" onClick={() => showAlbum('stamps')}>

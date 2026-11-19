@@ -325,3 +325,54 @@
 .waiting-hand { width: 100%; align-self: stretch; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 8px; margin: 4px 0 8px; }
 .waiting-hand .voucher { max-width: none; }
 .duel-steal { margin: 4px 0; font-size: 0.85rem; color: var(--stamp-red); font-weight: bold; }
+
+/* ── Profil : aperçu des jokers à côté de l'aperçu sur la carte ────────── */
+.member-previews { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.member-preview { display: flex; flex-direction: column; align-items: flex-start; }
+.jokers-preview {
+  position: relative;
+  width: 200px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 6px;
+  margin-bottom: 2px;
+  border: 1px solid rgb(58 54 50 / 0.5);
+  background-color: #2f4a3a; /* tapis de jeu, comme la main */
+  background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.04) 0 2px, transparent 2px 6px);
+  box-shadow: none;
+  cursor: pointer;
+}
+.jokers-preview-slot { display: block; width: 92px; transform: rotate(var(--fan)); transition: transform 0.15s; }
+.jokers-preview:hover .jokers-preview-slot, .jokers-preview:focus-visible .jokers-preview-slot { transform: translateY(-4px) rotate(var(--fan)); }
+.jokers-preview-empty {
+  display: grid;
+  place-items: center;
+  height: 52px;
+  color: rgb(251 246 234 / 0.7);
+  font-family: var(--font-title);
+  font-size: 1.4rem;
+  border: 2px dashed rgb(251 246 234 / 0.45);
+  border-radius: 4px;
+}
+.jokers-preview-link { font-size: 0.85rem; margin-bottom: 8px; }
+.voucher.is-mini { min-height: 52px; --stub: 24px; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.4)); }
+.voucher.is-mini .voucher-stub { padding: 4px 1px; gap: 0; }
+.voucher.is-mini .voucher-body { padding: 8px 6px 6px; justify-content: flex-end; }
+.voucher.is-mini .voucher-body::before { inset: 3px; outline: none; }
+.voucher.is-mini .voucher-name { font-size: 0.68rem; padding-right: 0; line-height: 1.1; }
+.voucher.is-mini .voucher-kind { top: 4px; right: 4px; font-size: 0.45rem; padding: 0 3px; }
+.voucher.is-mini {
+  -webkit-mask:
+    radial-gradient(circle at var(--stub) 0, transparent 4px, #000 4.5px) top / 100% 51% no-repeat,
+    radial-gradient(circle at var(--stub) 100%, transparent 4px, #000 4.5px) bottom / 100% 51% no-repeat;
+  mask:
+    radial-gradient(circle at var(--stub) 0, transparent 4px, #000 4.5px) top / 100% 51% no-repeat,
+    radial-gradient(circle at var(--stub) 100%, transparent 4px, #000 4.5px) bottom / 100% 51% no-repeat;
+}
+/* Fenêtre de choix des bons */
+.jokers-modal { width: min(760px, 94vw); max-height: 90vh; overflow-y: auto; text-align: left; }
+.jokers-modal-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+.jokers-modal .joker-hand { grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); }
