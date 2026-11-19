@@ -12,14 +12,16 @@ interface Props {
   /** Grisé avec une mention (ex. joker multi en solo). */
   disabledNote?: string;
   compact?: boolean;
+  /** Bon qu'on vient de jouer : talon arraché et coup de tampon animés (sinon, état final direct). */
+  animate?: boolean;
 }
 
-export function JokerVoucher({ joker, state = 'owned', disabledNote, compact = false }: Props) {
+export function JokerVoucher({ joker, state = 'owned', disabledNote, compact = false, animate = false }: Props) {
   const serial = String(hashString(joker.id) % 10000).padStart(4, '0');
   const locked = state === 'locked';
   return (
     <div
-      class={`voucher rarity-${joker.rarity} kind-${joker.kind}${locked ? ' is-locked' : ''}${state === 'used' ? ' is-used' : ''}${disabledNote ? ' is-disabled' : ''}${compact ? ' is-compact' : ''}`}
+      class={`voucher rarity-${joker.rarity} kind-${joker.kind}${locked ? ' is-locked' : ''}${state === 'used' ? ' is-used' : ''}${state === 'used' && animate ? ' is-animated' : ''}${disabledNote ? ' is-disabled' : ''}${compact ? ' is-compact' : ''}`}
     >
       <div class="voucher-stub">
         {locked ? <span class="voucher-blank-icon">?</span> : <JokerIcon id={joker.id} size={compact ? 30 : 38} />}

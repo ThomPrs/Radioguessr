@@ -29,6 +29,8 @@ export function JokerTray({ jokers, used, check, onPlay, targets = [], busy = fa
   const [armed, setArmed] = useState<JokerId | null>(null);
   const [target, setTarget] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  /** Bons joués depuis l'affichage du paquet : seuls ceux-là animent leur tampon « UTILISÉ ». */
+  const [justPlayed, setJustPlayed] = useState<string[]>([]);
   if (jokers.length === 0) return null;
   const armedDef = jokers.find((j) => j.id === armed && !used.includes(j.id));
   const needsTarget = armedDef?.target === 'opponent';
@@ -60,6 +62,7 @@ export function JokerTray({ jokers, used, check, onPlay, targets = [], busy = fa
         onClick={() => {
           tearSound();
           setTimeout(stampSound, 250);
+          setJustPlayed((l) => [...l, armedDef.id]);
           onPlay(armedDef.id, needsTarget ? target : null);
           setArmed(null);
           setTarget(null);
@@ -75,7 +78,8 @@ export function JokerTray({ jokers, used, check, onPlay, targets = [], busy = fa
 
   return (
     // Ouvert : survol, focus clavier, appui sur l'étiquette, ou confirmation en cours.
-    <div class={`joker-dock${open || armedDef ? ' is-open' : ''}`} role="group" aria-label={t.jokers.tray}>
+    // « has-left » : il reste des bons à jouer → ils se soulèvent une fois en début de manche.
+    <div class={`joker-dock${open || armedDef ? ' is-open' : ''}${left > 0 ? ' has-left' : ''}`} role="group" aria-label={t.jokers.tray}>
       {open && (
         <button class="joker-dock-close" onClick={() => setOpen(false)}>
           {t.jokers.dockClose}
@@ -104,7 +108,7 @@ export function JokerTray({ jokers, used, check, onPlay, targets = [], busy = fa
                 setArmed(armed === j.id ? null : j.id);
               }}
             >
-              <JokerVoucher joker={j} compact state={isUsed ? 'used' : 'owned'} disabledNote={reason} />
+              <JokerVoucher joker={j} state={isUsed ? 'used' : 'owned'} disabledNote={reason} animate={justPlayed.includes(j.id)} />
             </button>
           );
         })}
