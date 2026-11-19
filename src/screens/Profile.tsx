@@ -11,6 +11,7 @@ import { t } from '../i18n/fr';
 import { PinArt } from '../pins/PinArt';
 import { hashString } from '../../shared/rng';
 import { PinMarker } from '../pins/PinMarker';
+import { JokerDeck } from '../jokers/JokerDeck';
 import { AvatarView } from '../profile/Avatar';
 import { save, updateProfile } from '../state/save';
 
@@ -163,6 +164,8 @@ export function Profile() {
             </div>
           </div>
         )}
+
+        <JokerDeck />
 
         <p class="profile-stamps-link">
           <button class="link-button" onClick={() => showAlbum('stamps')}>

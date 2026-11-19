@@ -7,6 +7,7 @@ import { cleanName } from '../../shared/duel';
 import { PIN_IDS, STARTER_PIN, normalizePinId } from '../../shared/pins';
 import { collect, type CollectOutcome, type QslCard } from '../../shared/qsl';
 import { newlyEarned, type AchievementDef, type GameFacts } from '../achievements/catalog';
+import { HAND_SIZE, MAIL_EVERY, STARTER_JOKERS, cleanHand, drawJoker, type JokerDef } from '../../shared/jokers';
 import type { Round } from '../../shared/types';
 
 export const SAVE_KEY = 'radioguessr:save';
@@ -32,6 +33,8 @@ export interface Prefs {
   albumShowMissing: boolean;
   /** Solo : Breaking News (blind test) activée. */
   breakingNews: boolean;
+  /** Solo : cartes Joker activées. */
+  jokers: boolean;
 }
 
 export interface Profile {
@@ -60,6 +63,14 @@ export interface SaveV2 {
   achievements: Record<string, string>;
   /** Dernière visite du carnet : les succès plus récents sont marqués « nouveau ». */
   achievementsSeenAt: string | null;
+  /** Cartes Joker possédées. */
+  jokers: Record<string, true>;
+  /** Main : les 2 jokers emportés en partie. */
+  hand: string[];
+  /** Parties jouées depuis le dernier courrier (une carte toutes les MAIL_EVERY parties). */
+  mail: number;
+  /** Nombre total de jokers joués (succès). */
+  jokersPlayed: number;
 }
 
 export type SaveData = SaveV2;
@@ -79,9 +90,13 @@ export function defaultSave(): SaveData {
     pins: { [STARTER_PIN]: 1 },
     profile: { name: '', avatar: { ...DEFAULT_AVATAR }, pin: STARTER_PIN },
     stats: { gamesPlayed: 0, bestScore: 0, totalScore: 0, roundsPlayed: 0, bestDistanceKm: null, duels: { won: 0, lost: 0, draw: 0 } },
-    prefs: { radioVolume: 0.8, sfxVolume: 0.6, muted: false, motion: 'system', albumShowMissing: true, breakingNews: true },
+    prefs: { radioVolume: 0.8, sfxVolume: 0.6, muted: false, motion: 'system', albumShowMissing: true, breakingNews: true, jokers: true },
     achievements: {},
     achievementsSeenAt: null,
+    jokers: Object.fromEntries(STARTER_JOKERS.map((id) => [id, true as const])),
+    hand: [...STARTER_JOKERS],
+    mail: 0,
+    jokersPlayed: 0,
   };
 }
 
@@ -133,6 +148,21 @@ export function migrate(raw: unknown): SaveData {
     prefs: { ...def.prefs, ...d.prefs },
     achievements: d.achievements && typeof d.achievements === 'object' ? d.achievements : {},
     achievementsSeenAt: typeof d.achievementsSeenAt === 'string' ? d.achievementsSeenAt : null,
+    ...cleanJokers(d),
+  };
+}
+
+/** Collection de jokers : cartes de départ toujours présentes, main limitée aux cartes possédées. */
+function cleanJokers(d: Partial<SaveData>): Pick<SaveData, 'jokers' | 'hand' | 'mail' | 'jokersPlayed'> {
+  const jokers: Record<string, true> = {};
+  for (const id of STARTER_JOKERS) jokers[id] = true;
+  for (const [id, v] of Object.entries(d.jokers ?? {})) if (v && cleanHand([id]).length) jokers[id] = true;
+  const hand = d.hand === undefined ? [...STARTER_JOKERS] : cleanHand(d.hand).filter((id) => jokers[id]);
+  return {
+    jokers,
+    hand,
+    mail: Number.isInteger(d.mail) && d.mail! >= 0 ? d.mail! : 0,
+    jokersPlayed: Number.isInteger(d.jokersPlayed) && d.jokersPlayed! >= 0 ? d.jokersPlayed! : 0,
   };
 }
 
@@ -241,4 +271,37 @@ export function unlockAchievements(game?: GameFacts): AchievementDef[] {
 
 export function markAchievementsSeen(): void {
   save.value = { ...save.value, achievementsSeenAt: new Date().toISOString() };
+}
+
+/** Met une carte possédée dans la main : elle remplace la plus ancienne si la main est pleine. */
+export function putInHand(id: string): void {
+  if (!save.value.jokers[id] || save.value.hand.includes(id)) return;
+  const hand = [...save.value.hand, id].slice(-HAND_SIZE);
+  save.value = { ...save.value, hand };
+}
+
+export function removeFromHand(id: string): void {
+  save.value = { ...save.value, hand: save.value.hand.filter((h) => h !== id) };
+}
+
+/**
+ * Compte une partie pour le courrier. Toutes les MAIL_EVERY parties, une carte pas encore possédée arrive
+ * (rien si la collection est complète). Renvoie la carte reçue.
+ */
+export function tickMail(rng?: () => number): JokerDef | null {
+  const count = save.value.mail + 1;
+  if (count < MAIL_EVERY) {
+    save.value = { ...save.value, mail: count };
+    return null;
+  }
+  const card = drawJoker(save.value.jokers, rng);
+  const jokers = card ? { ...save.value.jokers, [card.id]: true as const } : save.value.jokers;
+  // Main incomplète : la nouvelle carte s'y range d'elle-même.
+  const hand = card && save.value.hand.length < HAND_SIZE ? [...save.value.hand, card.id] : save.value.hand;
+  save.value = { ...save.value, jokers, hand, mail: 0 };
+  return card;
+}
+
+export function countJokerPlayed(): void {
+  save.value = { ...save.value, jokersPlayed: save.value.jokersPlayed + 1 };
 }

@@ -12,7 +12,8 @@ import { NEWS_INTRO_MS, NEWS_LISTEN_MS, pickNewsSlot, type NewsAnswer, type Trac
 import { musicApi } from '../music/client';
 import { drawPin, SOLO_PRIZE_SCORE, type PinDef } from '../../shared/pins';
 import type { AchievementDef } from '../achievements/catalog';
-import { awardPin, collectCard, recordGame, unlockAchievements } from '../state/save';
+import type { JokerDef } from '../../shared/jokers';
+import { awardPin, collectCard, recordGame, tickMail, unlockAchievements } from '../state/save';
 import { nearestCity, preloadPlaces } from './places';
 import { StationPool } from './station-pool';
 
@@ -72,6 +73,8 @@ export class SoloGame {
   readonly prize = signal<{ pin: PinDef; count: number } | null>(null);
   /** Succès obtenus pendant cette partie. */
   readonly newStamps = signal<AchievementDef[]>([]);
+  /** Courrier : bon Joker reçu à la fin de cette partie. */
+  readonly mail = signal<JokerDef | null>(null);
   /** Manche (0..3) après laquelle tombe la Breaking News ; -1 si désactivée. */
   private readonly newsAfter: number;
   private newsTimers: ReturnType<typeof setTimeout>[] = [];
@@ -187,6 +190,7 @@ export class SoloGame {
         const pin = drawPin();
         this.prize.value = { pin, count: awardPin(pin.id) };
       }
+      this.mail.value = tickMail();
       this.newStamps.value = unlockAchievements({
         mode: 'world',
         distances: rounds.map((r) => r.distanceKm),

@@ -23,6 +23,7 @@ import { BreakingNews } from '../components/BreakingNews';
 import { ChatPanel } from '../components/ChatPanel';
 import { KraftEnvelope } from '../components/KraftEnvelope';
 import { StampStrip } from '../achievements/StampStrip';
+import { JokerMail } from '../jokers/JokerMail';
 import { PinArt } from '../pins/PinArt';
 import { AvatarView } from '../profile/Avatar';
 import { EnvelopeReveal } from '../components/EnvelopeReveal';
@@ -457,6 +458,8 @@ function Results({ session, view }: { session: DuelSession; view: RoomView }) {
   const cards = Object.values(session.cards.value).filter((c) => c.outcome !== 'kept');
   const prize = session.prize.value;
   const [prizeOpen, setPrizeOpen] = useState(true);
+  const mail = session.mail.value;
+  const [mailOpen, setMailOpen] = useState(true);
 
   const leave = (then: () => void) => () => {
     forgetIdentity(view.code);
@@ -548,7 +551,7 @@ function Results({ session, view }: { session: DuelSession; view: RoomView }) {
             </tbody>
           </table>
 
-          <StampStrip stamps={session.newStamps.value} paused={prize != null && prizeOpen} />
+          <StampStrip stamps={session.newStamps.value} paused={(prize != null && prizeOpen) || (mail != null && mailOpen)} />
 
           <h2 class="recap-subtitle">{t.recap.cards}</h2>
           {cards.length ? (
@@ -571,6 +574,7 @@ function Results({ session, view }: { session: DuelSession; view: RoomView }) {
         <ChatPanel session={session} />
       </section>
       {prize && prizeOpen && <KraftEnvelope pin={prize.pin} count={prize.count} onClose={() => setPrizeOpen(false)} />}
+      {mail && mailOpen && !(prize && prizeOpen) && <JokerMail joker={mail} onClose={() => setMailOpen(false)} />}
       <section class="game-map map-sheet">
         <MapView
           onReady={(m) =>

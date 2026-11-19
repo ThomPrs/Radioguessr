@@ -1,0 +1,174 @@
+/* ── Bons Joker (vouchers) ─────────────────────────────────────────────── */
+.voucher {
+  --rar: #4f7a4a;
+  --guilloche: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='12'%3E%3Cpath d='M0 6 Q10 0 20 6 T40 6 M0 9 Q10 3 20 9 T40 9' fill='none' stroke='%234f7a4a' stroke-opacity='0.22' stroke-width='0.8'/%3E%3C/svg%3E");
+  position: relative;
+  display: flex;
+  width: 100%;
+  max-width: 320px;
+  min-height: 132px;
+  color: var(--ink);
+  background-color: #fbf6ea;
+  background-image: var(--paper-grain);
+  filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.3));
+  /* Encoches rondes en haut et en bas de la ligne de perforation */
+  --stub: 74px;
+  -webkit-mask:
+    radial-gradient(circle at var(--stub) 0, transparent 8px, #000 8.5px) top / 100% 51% no-repeat,
+    radial-gradient(circle at var(--stub) 100%, transparent 8px, #000 8.5px) bottom / 100% 51% no-repeat;
+  mask:
+    radial-gradient(circle at var(--stub) 0, transparent 8px, #000 8.5px) top / 100% 51% no-repeat,
+    radial-gradient(circle at var(--stub) 100%, transparent 8px, #000 8.5px) bottom / 100% 51% no-repeat;
+  text-align: left;
+}
+.voucher.rarity-rare {
+  --rar: #a8841a;
+  --guilloche: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='12'%3E%3Cpath d='M0 6 Q10 0 20 6 T40 6 M0 9 Q10 3 20 9 T40 9' fill='none' stroke='%23a8841a' stroke-opacity='0.25' stroke-width='0.8'/%3E%3C/svg%3E");
+}
+.voucher.rarity-epic {
+  --rar: #8a5a9e;
+  --guilloche: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='12'%3E%3Cpath d='M0 6 Q10 0 20 6 T40 6 M0 9 Q10 3 20 9 T40 9' fill='none' stroke='%238a5a9e' stroke-opacity='0.25' stroke-width='0.8'/%3E%3C/svg%3E");
+}
+.voucher-stub {
+  flex: none;
+  width: var(--stub);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 4px;
+  border-right: 2px dashed rgb(58 54 50 / 0.55);
+  background: color-mix(in srgb, var(--rar) 14%, transparent);
+}
+.voucher-serial { font-family: var(--font-type); font-size: 0.65rem; letter-spacing: 0.05em; writing-mode: vertical-rl; transform: rotate(180deg); opacity: 0.75; }
+.voucher-blank-icon { font-family: var(--font-title); font-size: 1.6rem; opacity: 0.4; }
+.voucher-body {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 6px;
+  padding: 8px 10px 6px;
+  border: 1.5px solid var(--rar);
+  outline: 1px solid var(--rar);
+  outline-offset: -5px;
+  background-image: var(--guilloche);
+}
+.voucher-for { font-family: var(--font-title); font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--rar); }
+.voucher-name { font-family: var(--font-title); font-size: 1.15rem; line-height: 1.1; padding-right: 48px; }
+.voucher-effect { margin: 2px 0 0; font-size: 0.78rem; line-height: 1.3; }
+.voucher-valid { margin-top: auto; padding-top: 4px; font-size: 0.65rem; font-style: italic; opacity: 0.7; }
+.voucher-kind {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 1px 6px;
+  font-family: var(--font-title);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: var(--paper);
+  background: var(--post-blue);
+  transform: rotate(4deg);
+}
+.voucher.kind-multi .voucher-kind { background: var(--stamp-red); }
+
+.voucher.is-compact { max-width: 230px; min-height: 92px; --stub: 52px; }
+.voucher.is-compact .voucher-name { font-size: 0.95rem; }
+.voucher.is-locked { filter: grayscale(1) opacity(0.55); }
+.voucher.is-locked .voucher-kind { opacity: 0.5; }
+.voucher.is-disabled { filter: grayscale(0.9) opacity(0.6) drop-shadow(0 3px 4px rgb(0 0 0 / 0.2)); }
+.voucher.is-disabled .voucher-valid { color: var(--stamp-red); font-style: normal; font-weight: bold; opacity: 1; }
+
+/* Bon utilisé : talon arraché et tampon « UTILISÉ » */
+.voucher.is-used .voucher-stub { animation: stub-tear 0.5s ease-in forwards; }
+@keyframes stub-tear { to { transform: translate(-14px, 26px) rotate(-18deg); opacity: 0; } }
+.voucher-used {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  padding: 2px 12px;
+  font-family: var(--font-title);
+  font-size: 1.3rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--stamp-red);
+  border: 3px double var(--stamp-red);
+  --rot: -14deg;
+  transform: translate(-50%, -50%) rotate(var(--rot));
+  animation: voucher-stamp 0.3s cubic-bezier(0.5, 0, 0.75, 0) both 0.25s;
+  pointer-events: none;
+}
+@keyframes voucher-stamp {
+  from { opacity: 0; transform: translate(-50%, -50%) rotate(var(--rot)) scale(2.2); }
+  to { opacity: 0.9; transform: translate(-50%, -50%) rotate(var(--rot)) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .voucher.is-used .voucher-stub { animation: none; opacity: 0.3; }
+  .voucher-used { animation: none; opacity: 0.9; }
+}
+
+/* ── Profil : main et collection ───────────────────────────────────────── */
+.joker-hand {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: 12px;
+  padding: 14px;
+  background: #2f4a3a;
+  background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.03) 0 2px, transparent 2px 6px);
+  border: 8px solid #7a4a2c;
+  border-radius: 6px;
+  box-shadow: inset 0 0 14px rgb(0 0 0 / 0.5);
+}
+.joker-hand-slot { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.joker-hand-empty {
+  width: 100%;
+  max-width: 320px;
+  min-height: 132px;
+  display: grid;
+  place-items: center;
+  color: rgb(251 246 234 / 0.6);
+  border: 2px dashed rgb(251 246 234 / 0.4);
+  border-radius: 6px;
+  font-style: italic;
+}
+.joker-hand .link-button { color: var(--paper); font-size: 0.8rem; }
+.joker-warning { margin: 8px 0 0; color: var(--stamp-red); font-size: 0.85rem; font-weight: bold; }
+.joker-mail-status { margin: 8px 0 0; font-size: 0.85rem; font-style: italic; opacity: 0.8; }
+.joker-kind-title { margin: 16px 0 8px; font-size: 0.9rem; }
+.joker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); gap: 12px; }
+.joker-choice {
+  position: relative;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.joker-choice .voucher { max-width: none; }
+.joker-choice:not(:disabled):hover .voucher { transform: translateY(-2px) rotate(-0.6deg); }
+.joker-choice .voucher { transition: transform 0.15s; }
+.joker-choice.is-in-hand .voucher { outline: 3px solid var(--stamp-red); outline-offset: 2px; }
+.joker-choice-tag { font-size: 0.75rem; font-family: var(--font-title); color: var(--stamp-red); min-height: 1em; }
+.joker-choice:disabled { cursor: default; opacity: 1; }
+
+/* ── Courrier : petite enveloppe par avion ─────────────────────────────── */
+.mail-stage .kraft-envelope { background-color: #f6efdf; background-image: var(--paper-grain); }
+.mail-stage .kraft-strip { background: #f6efdf; }
+.mail-stage .kraft-envelope::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 12px solid transparent;
+  border-image: repeating-linear-gradient(135deg, var(--stamp-red) 0 12px, #fbf6ea 12px 18px, var(--post-blue) 18px 30px, #fbf6ea 30px 36px) 12;
+  pointer-events: none;
+}
+.mail-stage .kraft-pin { width: min(320px, 82vw); }
+.mail-stage .kraft-pin .voucher { margin: 0 auto; }
+.voucher.is-compact .voucher-effect { font-size: 0.7rem; }

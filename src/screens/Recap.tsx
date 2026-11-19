@@ -6,6 +6,7 @@ import { SOLO_PRIZE_SCORE } from '../../shared/pins';
 import { MAX_ROUND_SCORE, ROUNDS_PER_GAME } from '../../shared/scoring';
 import { StampStrip } from '../achievements/StampStrip';
 import { KraftEnvelope } from '../components/KraftEnvelope';
+import { JokerMail } from '../jokers/JokerMail';
 import { goHome, startWorldGame } from '../app';
 import { MapView } from '../components/MapView';
 import { formatInt, formatKm } from '../format';
@@ -20,6 +21,8 @@ export function Recap({ game }: { game: SoloGame }) {
   const verdict = t.recap.verdicts.find(([min]) => total >= min)?.[1] ?? '';
   const prize = game.prize.value;
   const [prizeOpen, setPrizeOpen] = useState(prize != null);
+  const mail = game.mail.value;
+  const [mailOpen, setMailOpen] = useState(mail != null);
 
   return (
     <main class="desk game-layout">
@@ -66,7 +69,7 @@ export function Recap({ game }: { game: SoloGame }) {
           </p>
         )}
 
-        <StampStrip stamps={game.newStamps.value} paused={prizeOpen} />
+        <StampStrip stamps={game.newStamps.value} paused={prizeOpen || mailOpen} />
 
         <h2 class="recap-subtitle">{t.recap.cards}</h2>
         {rounds.some((r) => r.card && r.qsl !== 'kept') ? (
@@ -92,6 +95,7 @@ export function Recap({ game }: { game: SoloGame }) {
       {prize && prizeOpen && (
         <KraftEnvelope pin={prize.pin} count={prize.count} title={t.pins.soloPrizeTitle} onClose={() => setPrizeOpen(false)} />
       )}
+      {mail && mailOpen && !prizeOpen && <JokerMail joker={mail} onClose={() => setMailOpen(false)} />}
       <section class="game-map map-sheet">
         <MapView
           onReady={(m) => m.showSummary(rounds.map((r) => ({ station: r.station, guess: r.guess })))}

@@ -10,7 +10,8 @@ import { nearestCity, preloadPlaces } from '../game/places';
 import { getPlayer } from '../game/solo';
 import { drawPin, type PinDef } from '../../shared/pins';
 import type { AchievementDef } from '../achievements/catalog';
-import { awardPin, collectCard, recordDuel, unlockAchievements } from '../state/save';
+import type { JokerDef } from '../../shared/jokers';
+import { awardPin, collectCard, recordDuel, tickMail, unlockAchievements } from '../state/save';
 import { ApiError, api, forgetIdentity, type Identity } from './client';
 
 export type ConnectionState = 'ok' | 'retrying' | 'expired' | 'forbidden';
@@ -36,6 +37,8 @@ export class DuelSession {
   readonly prize = signal<{ pin: PinDef; count: number } | null>(null);
   /** Succès obtenus pendant cette partie. */
   readonly newStamps = signal<AchievementDef[]>([]);
+  /** Courrier : bon Joker reçu à la fin de cette partie. */
+  readonly mail = signal<JokerDef | null>(null);
   /** Erreur du dernier envoi de message (trop rapide…). */
   readonly chatError = signal<string | null>(null);
 
@@ -140,6 +143,7 @@ export class DuelSession {
           const pin = drawPin();
           this.prize.value = { pin, count: awardPin(pin.id) };
         }
+        this.mail.value = tickMail();
         const mine = v.history.map((h) => h.entries[v.youId] ?? null);
         this.newStamps.value = unlockAchievements({
           mode: 'duel',

@@ -10,6 +10,7 @@ import './styles/duel.css';
 import './styles/pins.css';
 import './styles/news.css';
 import './styles/achievements.css';
+import './styles/jokers.css';
 
 document.title = t.app.tabTitle;
 
