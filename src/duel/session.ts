@@ -5,14 +5,14 @@ import { computed, signal } from '@preact/signals';
 import { CHAT_KEEP, POLL_INTERVAL_MS, rankPlayers, type ChatMessage, type HistoryItem, type RoomView } from '../../shared/duel';
 import { createQslCard, type CollectOutcome, type QslCard } from '../../shared/qsl';
 import type { HintKind } from '../../shared/types';
-import { startStatic, stopStatic, typeClick } from '../audio/sfx';
+import { stampSound, startStatic, stopStatic, typeClick } from '../audio/sfx';
 import { nearestCity, preloadPlaces } from '../game/places';
 import { getPlayer } from '../game/solo';
 import { drawPin, type PinDef } from '../../shared/pins';
 import type { AchievementDef } from '../achievements/catalog';
 import type { JokerDef } from '../../shared/jokers';
 import { awardPin, collectCard, countJokerPlayed, recordDuel, tickMail, unlockAchievements } from '../state/save';
-import { ApiError, api, forgetIdentity, type Identity } from './client';
+import { ApiError, api, forgetIdentity, saveIdentity, type Identity } from './client';
 
 export type ConnectionState = 'ok' | 'retrying' | 'expired' | 'forbidden';
 
@@ -136,9 +136,18 @@ export class DuelSession {
     };
   }
 
+  private lastReaction = new Map<string, number>();
+
   private apply(raw: RoomView): void {
     const v = this.withPhotos(raw);
     const prev = this.view.value;
+    // Petit bruit de tampon à chaque nouvelle réaction (une seule fois par réaction).
+    for (const p of v.players) {
+      if (p.reaction && p.reaction.at > (this.lastReaction.get(p.id) ?? 0)) {
+        this.lastReaction.set(p.id, p.reaction.at);
+        if (prev) stampSound();
+      }
+    }
     this.view.value = v;
     this.mergeChat(v.chat);
     if (v.status !== 'news') this.newsPending.value = null;
@@ -279,6 +288,25 @@ export class DuelSession {
   async hint(kind: HintKind): Promise<void> {
     const r = this.view.value?.round;
     if (r) await this.send({ action: 'hint', round: r.index, kind });
+  }
+
+  /** Réaction rapide (petit tampon vu par tout le salon). */
+  async react(kind: string): Promise<void> {
+    try {
+      const res = await api.act(this.id, { action: 'react', kind }, this.lastChatId);
+      this.apply(res.view);
+    } catch {
+      // trop rapide ou réseau : la réaction est simplement perdue
+    }
+  }
+
+  /** Revanche : on crée (ou on rejoint) le nouveau salon ; renvoie l'identité à y utiliser (la même). */
+  async rematch(): Promise<Identity | null> {
+    if (!this.view.value?.rematch) await this.send({ action: 'rematch' });
+    const r = this.view.value?.rematch;
+    if (!r) return null;
+    this.stop();
+    return saveIdentity({ code: r.code, playerId: this.id.playerId, token: this.id.token });
   }
 
   /** Option Jokers (hôte, avant le lancement). */

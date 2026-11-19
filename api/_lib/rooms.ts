@@ -8,6 +8,8 @@ import {
   MAX_PLAYERS,
   MIN_PLAYERS_TO_START,
   PLAYER_COLORS,
+  REACTIONS,
+  REACTION_MIN_INTERVAL_MS,
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
   ROOM_TTL_SECONDS,
@@ -226,27 +228,79 @@ function systemMessage(text: string, now: number): Omit<ChatMessage, 'id'> {
 
 // ── Opérations ─────────────────────────────────────────────────────────────
 
-/** `lookRaw` : avatar et épingle envoyés par le client, nettoyés (valeurs inconnues → défaut). */
-export async function createRoom(nameRaw: unknown, now = Date.now(), stations?: Station[][], lookRaw?: unknown): Promise<JoinResponse> {
-  const name = cleanName(nameRaw);
-  if (!name) throw new DuelError('bad-request', 400, 'Pseudo manquant');
-  const store = getStore();
-  const rounds = stations ?? (await pickRoomStations());
-  const { record, token, photo } = await newPlayer(name, now, 0, cleanLook(lookRaw), handFrom(lookRaw));
+/** Choix des stations d'un nouveau salon (remplaçable dans les tests). */
+let stationPicker: () => Promise<Station[][]> = () => pickRoomStations();
+export function setStationPicker(fn: () => Promise<Station[][]>): void {
+  stationPicker = fn;
+}
 
+/** Ouvre un salon sous un code libre, avec ses joueurs et ses champs de départ ; renvoie le code. */
+async function openRoom(
+  store: Store,
+  now: number,
+  rounds: Station[][],
+  hostId: string,
+  players: PlayerRecord[],
+  extra: Record<string, string> = {},
+): Promise<string> {
   for (let attempt = 0; attempt < 8; attempt++) {
     let code = '';
     const bytes = new Uint8Array(ROOM_CODE_LENGTH);
     crypto.getRandomValues(bytes);
     for (const b of bytes) code += ROOM_CODE_ALPHABET[b % ROOM_CODE_ALPHABET.length];
-    const meta: Meta = { code, createdAt: now, hostId: record.id, rounds };
+    const meta: Meta = { code, createdAt: now, hostId, rounds };
     if (!(await store.hsetnx(key(code), F.meta, JSON.stringify(meta)))) continue; // code déjà pris
-    await store.hset(key(code), { [F.player(record.id)]: JSON.stringify(record), [F.seen(record.id)]: String(now), [F.count]: '1' });
+    const fields: Record<string, string> = { [F.count]: String(players.length), ...extra };
+    for (const p of players) {
+      fields[F.player(p.id)] = JSON.stringify(p);
+      fields[F.seen(p.id)] = String(now);
+    }
+    await store.hset(key(code), fields);
     await store.expire(key(code), ROOM_TTL_SECONDS);
-    await savePhoto(store, code, record.id, photo);
-    return { code, playerId: record.id, token };
+    return code;
   }
   throw new DuelError('server', 500, 'Impossible de générer un code');
+}
+
+/** `lookRaw` : avatar et épingle envoyés par le client, nettoyés (valeurs inconnues → défaut). */
+export async function createRoom(nameRaw: unknown, now = Date.now(), stations?: Station[][], lookRaw?: unknown): Promise<JoinResponse> {
+  const name = cleanName(nameRaw);
+  if (!name) throw new DuelError('bad-request', 400, 'Pseudo manquant');
+  const store = getStore();
+  const rounds = stations ?? (await stationPicker());
+  const { record, token, photo } = await newPlayer(name, now, 0, cleanLook(lookRaw), handFrom(lookRaw));
+  const code = await openRoom(store, now, rounds, record.id, [record]);
+  await savePhoto(store, code, record.id, photo);
+  return { code, playerId: record.id, token };
+}
+
+/**
+ * Revanche : nouveau salon (nouvelles stations, mêmes options) où les joueurs encore là sont recopiés
+ * avec la même identité (même jeton) : personne n'a de code à saisir. Un seul salon même si
+ * plusieurs joueurs cliquent en même temps (verrou HSETNX).
+ */
+async function createRematch(store: Store, snap: Snapshot, me: PlayerRecord, now: number): Promise<void> {
+  const k = key(snap.meta.code);
+  if (snap.raw[F.rematch] || !(await store.hsetnx(k, F.rematchLock, me.id))) return; // déjà lancée
+  try {
+    const rounds = await stationPicker();
+    const players = snap.players.filter((p) => !isGone(snap, p.id, now));
+    const hostId = players.some((p) => p.id === snap.meta.hostId) ? snap.meta.hostId : me.id;
+    const extra: Record<string, string> = {};
+    for (const f of [F.newsOpt, F.jokersOpt]) if (snap.raw[f]) extra[f] = snap.raw[f]!;
+    const code = await openRoom(store, now, rounds, hostId, players, extra);
+    const photos = await store.hgetall(photosKey(snap.meta.code));
+    const kept = Object.fromEntries(Object.entries(photos ?? {}).filter(([pid]) => players.some((p) => p.id === pid)));
+    if (Object.keys(kept).length) {
+      await store.hset(photosKey(code), kept);
+      await store.expire(photosKey(code), ROOM_TTL_SECONDS);
+    }
+    await store.hset(k, { [F.rematch]: JSON.stringify({ code, by: me.id }) });
+    await postChat(store, snap.meta.code, systemMessage(`${me.name} propose une revanche !`, now));
+  } catch (err) {
+    await store.hdel(k, F.rematchLock); // échec (stations introuvables…) : on pourra réessayer
+    throw err;
+  }
 }
 
 export async function joinRoom(code: string, nameRaw: unknown, cred: Credentials, now = Date.now(), lookRaw?: unknown): Promise<JoinResponse> {
@@ -447,6 +501,23 @@ export async function act(code: string, cred: Credentials, body: DuelAction, now
       if (now - last < CHAT_MIN_INTERVAL_MS) throw new DuelError('too-fast', 429, 'Un message par seconde');
       await store.hset(k, { [F.chatAt(pid)]: String(now) });
       await postChat(store, code, { pid, name: me.name, color: me.color, text, at: now, kind: 'msg' });
+      break;
+    }
+    case 'react': {
+      if (!(REACTIONS as readonly string[]).includes(body.kind)) throw new DuelError('bad-request', 400, 'Réaction inconnue');
+      let last = 0;
+      try {
+        last = Number((JSON.parse(snap.raw[F.react(pid)] ?? '{}') as { at?: number }).at ?? 0);
+      } catch {
+        // champ illisible : on l'ignore
+      }
+      if (now - last < REACTION_MIN_INTERVAL_MS) throw new DuelError('too-fast', 429, 'Une réaction toutes les 2 secondes');
+      await store.hset(k, { [F.react(pid)]: JSON.stringify({ kind: body.kind, at: now }) });
+      break;
+    }
+    case 'rematch': {
+      if (d.status !== 'finished') throw new DuelError('bad-request', 409, 'La partie n’est pas terminée');
+      await createRematch(store, snap, me, now);
       break;
     }
     case 'leave': {

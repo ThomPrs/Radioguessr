@@ -269,3 +269,49 @@
   .duel-layout .chat-panel { order: 8; flex: none; height: 320px; }
   .duel-layout .chat-panel.is-closed { height: auto; }
 }
+
+/* ── Réactions rapides ─────────────────────────────────────────────────── */
+.reaction-bar { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px 0; }
+.reaction-btn {
+  padding: 1px 7px;
+  font-family: var(--font-title);
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  color: var(--stamp-red);
+  background: none;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  box-shadow: none;
+  transform: rotate(-2deg);
+  opacity: 0.85;
+}
+.reaction-btn:nth-child(even) { transform: rotate(2deg); color: var(--post-blue); }
+.reaction-btn:not(:disabled):hover { opacity: 1; transform: rotate(0) scale(1.08); }
+.reaction-btn:disabled { opacity: 0.35; }
+/* Tampon de réaction à côté du nom d'un joueur */
+.player-reaction {
+  flex: none;
+  padding: 0 6px;
+  font-family: var(--font-title);
+  font-size: 0.75rem;
+  color: var(--player, var(--stamp-red));
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  background: rgb(251 246 234 / 0.9);
+  --rot: -8deg;
+  transform: rotate(var(--rot));
+  animation: stamp-thump 0.28s cubic-bezier(0.5, 0, 0.75, 0) both, reaction-fade 0.6s ease-in 3s forwards;
+}
+@keyframes reaction-fade { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .player-reaction { animation: reaction-fade 0.6s ease-in 3s forwards; } }
+/* Revanche proposée */
+.rematch-banner {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  background: var(--post-blue);
+  color: var(--paper);
+  font-family: var(--font-title);
+  font-size: 0.9rem;
+  transform: rotate(-0.8deg);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.3);
+}

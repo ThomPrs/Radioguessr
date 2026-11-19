@@ -36,6 +36,12 @@ export function PlayerList({ players, youId, phase }: Props) {
               {p.id === youId && <em class="player-tag"> ({t.duel.youTag})</em>}
               {p.isHost && <span class="player-host">{t.duel.host}</span>}
             </span>
+            {p.reaction && (
+              // La clé change à chaque réaction : le tampon s'abat de nouveau.
+              <span key={p.reaction.at} class="player-reaction" style={{ '--player': PLAYER_COLORS[p.color] } as Record<string, string>}>
+                {t.reactions.label[p.reaction.kind]}
+              </span>
+            )}
             {p.pin && <PinArt id={p.pin} height={30} />}
             {status && <span class={`player-status ${status.cls}`}>{status.label}</span>}
             {phase !== 'waiting' && <span class="player-total">{formatInt(p.total)}</span>}

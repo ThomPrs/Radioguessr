@@ -126,6 +126,11 @@ export const t = {
     roundBest: 'Meilleur',
     round: (i: number) => `Manche ${i}`,
     rematch: 'Nouveau salon',
+    rematchNow: 'Revanche !',
+    joinRematch: 'Rejoindre la revanche',
+    rematchPreparing: 'Préparation de la revanche…',
+    rematchBy: (name: string) => `${name} propose une revanche avec les mêmes joueurs !`,
+    rematchHelp: 'Mêmes joueurs, nouvelles stations : pas de code à partager.',
     quit: 'Quitter',
     quitConfirm: 'Quitter la partie ? Les autres pourront la finir sans vous.',
   },
@@ -364,6 +369,11 @@ export const t = {
       pickpocket: 'Volez 500 points à un adversaire sur la manche.',
       bouclier: 'Annule le prochain joker lancé contre vous pendant la manche.',
     } as Record<string, string>,
+  },
+  reactions: {
+    title: 'Réactions rapides',
+    send: (label: string) => `Envoyer « ${label} »`,
+    label: { '73': '73 !', bravo: 'Bravo !', aie: 'Aïe !', ouah: 'Ouah !', hehe: 'Hé hé', tente: 'Bien tenté' } as Record<string, string>,
   },
   photo: {
     title: 'Photo',

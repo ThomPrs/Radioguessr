@@ -6,6 +6,7 @@ import { CHAT_MAX_LENGTH, PLAYER_COLORS, type ChatMessage } from '../../shared/d
 import { clickSound } from '../audio/sfx';
 import type { DuelSession } from '../duel/session';
 import { t } from '../i18n/fr';
+import { ReactionBar } from './ReactionBar';
 
 function time(at: number): string {
   return new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -71,6 +72,7 @@ export function ChatPanel({ session }: { session: DuelSession }) {
             ))}
           </ol>
 
+          <ReactionBar session={session} />
           <form class="chat-form" onSubmit={(e) => void submit(e)}>
             <input
               type="text"

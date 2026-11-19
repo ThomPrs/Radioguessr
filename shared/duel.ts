@@ -26,6 +26,12 @@ export const CHAT_MAX_LENGTH = 200;
 export const CHAT_KEEP = 40; // messages conservés par salon
 export const CHAT_MIN_INTERVAL_MS = 1_000; // anti-spam : un message par seconde et par joueur
 
+/** Réactions rapides (petits tampons envoyés en un clic). */
+export const REACTIONS = ['73', 'bravo', 'aie', 'ouah', 'hehe', 'tente'] as const;
+export type ReactionKind = (typeof REACTIONS)[number];
+export const REACTION_MIN_INTERVAL_MS = 2_000; // anti-spam
+export const REACTION_SHOW_MS = 4_000; // durée d'affichage chez les autres
+
 /** Une couleur d'encre par joueur, attribuée dans l'ordre d'arrivée. */
 export const PLAYER_COLORS = ['#d9483b', '#2f5d8c', '#4f7a4a', '#c9822b', '#8a5a9e', '#2b8a8a', '#7a4a2c', '#c2577a'] as const;
 
@@ -72,6 +78,8 @@ export interface PlayerView {
   /** Parti volontairement, ou silencieux depuis plus de 2 minutes. */
   gone: boolean;
   total: number;
+  /** Dernière réaction rapide (moins de 4 s), sinon null. */
+  reaction: { kind: ReactionKind; at: number } | null;
   /** Manche en cours : rapport envoyé / prêt pour la suite. */
   guessed: boolean;
   ready: boolean;
@@ -170,6 +178,8 @@ export interface RoomView {
   newsResult: { answer: TrackInfo | null; entries: Record<string, NewsAnswer | null> } | null;
   /** Cartes Joker activées par l'hôte. */
   jokersEnabled: boolean;
+  /** Revanche proposée : code du nouveau salon (mêmes joueurs) et qui l'a lancée. */
+  rematch: { code: string; by: string } | null;
   /** Ma main (envoyée en rejoignant) et les jokers déjà joués. */
   myJokers: { hand: JokerId[]; used: JokerId[] };
 }
@@ -192,6 +202,8 @@ export type DuelAction =
   | { action: 'joker'; round: number; id: string; target?: string | null; lat?: number; lon?: number }
   | { action: 'news-answer'; guessId: number }
   | { action: 'news-ready' }
+  | { action: 'react'; kind: string }
+  | { action: 'rematch' }
   | { action: 'leave' };
 
 export type DuelErrorCode = 'not-found' | 'full' | 'started' | 'forbidden' | 'bad-request' | 'too-fast' | 'stations' | 'server';

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { act, createRoom, getPhotos, getRoom, joinRoom, type Credentials } from '../api/_lib/rooms';
+import { act, createRoom, getPhotos, getRoom, joinRoom, setStationPicker, type Credentials } from '../api/_lib/rooms';
 import { cleanLook } from '../shared/avatars';
 import { MemoryStore, findRedisEnv, setStore } from '../api/_lib/store';
 import { ABANDON_MS, CHAT_KEEP, COUNTDOWN_MS, MAX_PLAYERS, REVEAL_TIME_MS, ROUND_TIME_MS, rankPlayers } from '../shared/duel';
@@ -468,5 +468,64 @@ describe('photo de profil', () => {
     ]);
     expect(await getPhotos(code, bob)).toEqual({ photos: { [alice.playerId!]: PHOTO } });
     await expect(getPhotos(code, { playerId: alice.playerId, token: 'faux' })).rejects.toMatchObject({ code: 'forbidden' });
+  });
+});
+
+describe('réactions rapides', () => {
+  it('visibles 4 s chez les autres, une toutes les 2 s, type contrôlé', async () => {
+    const t = await setup3();
+    await act(code, alice, { action: 'react', kind: 'bravo' }, t + 100);
+    const b = await getRoom(code, bob, t + 500);
+    expect(b.players.find((p) => p.id === alice.playerId)?.reaction).toEqual({ kind: 'bravo', at: t + 100 });
+    expect(b.players.find((p) => p.id === bob.playerId)?.reaction).toBeNull();
+    await expect(act(code, alice, { action: 'react', kind: 'aie' }, t + 1000)).rejects.toMatchObject({ code: 'too-fast' });
+    await expect(act(code, bob, { action: 'react', kind: '<script>' }, t + 1000)).rejects.toMatchObject({ code: 'bad-request' });
+    expect((await getRoom(code, bob, t + 100 + 4_500)).players.find((p) => p.id === alice.playerId)?.reaction).toBeNull();
+  });
+});
+
+describe('revanche', () => {
+  it('refusée tant que la partie n’est pas terminée', async () => {
+    setStationPicker(async () => ROUNDS);
+    const t0 = await setup3();
+    await expect(act(code, alice, { action: 'rematch' }, t0 + 10)).rejects.toMatchObject({ code: 'bad-request' });
+  });
+
+  it('copie joueurs présents, options, photos ; deux clics = un salon', async () => {
+    setStationPicker(async () => ROUNDS);
+    const PHOTO = 'data:image/jpeg;base64,' + 'B'.repeat(3000);
+    const h = await createRoom('Alice', T0, ROUNDS, { avatar: { face: 'robot', bg: 1, photo: PHOTO, usePhoto: true } });
+    code = h.code;
+    alice = cred(h);
+    bob = cred(await joinRoom(code, 'Bob', NOBODY, T0 + 100));
+    carol = cred(await joinRoom(code, 'Carol', NOBODY, T0 + 200));
+    await act(code, alice, { action: 'options', breakingNews: false, jokers: true }, T0 + 300);
+    await act(code, alice, { action: 'start' }, T0 + 1000);
+    let t = T0 + 1000 + COUNTDOWN_MS;
+    await act(code, carol, { action: 'leave' }, t + 10); // Carol part : pas recopiée
+    for (let i = 0; i < 5; i++) {
+      for (const c of [alice, bob]) await act(code, c, { action: 'guess', round: i, lat: 0, lon: 0 }, t + 1000);
+      for (const c of [alice, bob]) await act(code, c, { action: 'ready', round: i }, t + 2000);
+      t += 3000;
+    }
+    expect((await getRoom(code, bob, t)).status).toBe('finished');
+    const old = code;
+    await Promise.all([act(old, bob, { action: 'rematch' }, t + 10), act(old, alice, { action: 'rematch' }, t + 10)]);
+    const v = await getRoom(old, alice, t + 20);
+    expect(v.rematch?.code).toMatch(/^[A-Z2-9]{5}$/);
+    expect(v.rematch?.code).not.toBe(old);
+    expect(v.chat.filter((m) => m.text.includes('propose une revanche'))).toHaveLength(1);
+    // Mêmes identités dans le nouveau salon
+    const n = await getRoom(v.rematch!.code, bob, t + 30);
+    expect(n.status).toBe('waiting');
+    expect(n.players.map((p) => p.name)).toEqual(['Alice', 'Bob']);
+    expect(n.hostId).toBe(alice.playerId);
+    expect(n.jokersEnabled).toBe(true);
+    expect(n.players[0]!.total).toBe(0);
+    expect(await getPhotos(v.rematch!.code, bob)).toEqual({ photos: { [alice.playerId!]: PHOTO } });
+    await expect(getRoom(v.rematch!.code, carol, t + 40)).rejects.toMatchObject({ code: 'forbidden' });
+    // L'hôte peut relancer
+    await act(v.rematch!.code, alice, { action: 'start' }, t + 50);
+    expect((await getRoom(v.rematch!.code, bob, t + 60)).status).toBe('countdown');
   });
 });

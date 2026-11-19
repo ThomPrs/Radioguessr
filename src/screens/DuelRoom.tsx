@@ -18,7 +18,7 @@ import { shortStationName } from '../../shared/qsl';
 import { HINT_COST, hintsCost } from '../../shared/scoring';
 import type { HintKind } from '../../shared/types';
 import { clickSound, pinSound, stampSound } from '../audio/sfx';
-import { goHome, openDuelLobby } from '../app';
+import { goHome, openDuelLobby, openDuelRoom } from '../app';
 import { BreakingNews } from '../components/BreakingNews';
 import { ChatPanel } from '../components/ChatPanel';
 import { KraftEnvelope } from '../components/KraftEnvelope';
@@ -689,10 +689,20 @@ function Results({ session, view }: { session: DuelSession; view: RoomView }) {
             <p>{t.recap.noCards}</p>
           )}
 
+          {view.rematch && view.rematch.by !== view.youId && <p class="rematch-banner">{t.duel.rematchBy(nameOf(view, view.rematch.by))}</p>}
           <div class="recap-actions">
-            <button class="primary-action" onClick={leave(openDuelLobby)}>
-              {t.duel.rematch}
+            <button
+              class="primary-action"
+              disabled={session.busy.value}
+              title={t.duel.rematchHelp}
+              onClick={() => {
+                clickSound();
+                void session.rematch().then((id) => id && openDuelRoom(id));
+              }}
+            >
+              {session.busy.value ? t.duel.rematchPreparing : view.rematch ? t.duel.joinRematch : t.duel.rematchNow}
             </button>
+            <button onClick={leave(openDuelLobby)}>{t.duel.rematch}</button>
             <button onClick={leave(goHome)}>{t.recap.home}</button>
           </div>
         </div>

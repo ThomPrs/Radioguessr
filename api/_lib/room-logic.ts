@@ -10,6 +10,8 @@ import {
   DUEL_ROUNDS,
   REVEAL_TIME_MS,
   ROUND_TIME_MS,
+  REACTION_SHOW_MS,
+  type ReactionKind,
   type ChatMessage,
   type DuelEntry,
   type NewsPhase,
@@ -83,6 +85,10 @@ export const F = {
   newsInfo: 'news:info', // morceau (titre, artiste, pochette), pour la révélation
   newsAns: (pid: string) => `news:ans:${pid}`,
   newsReady: (pid: string) => `news:ready:${pid}`,
+  // Réactions rapides et revanche
+  react: (pid: string) => `react:${pid}`,
+  rematchLock: 'rematch:lock',
+  rematch: 'rematch', // { code, by }
   // Jokers
   jokersOpt: 'opt:jokers',
   joker: (pid: string, id: string) => `jk:${pid}:${id}`, // une seule fois par partie (HSETNX)
@@ -422,6 +428,7 @@ export function buildView(snap: Snapshot, pid: string, now: number, chatSince = 
       connected: !snap.left[p.id] && now - seen <= CONNECTED_MS,
       gone: isGone(snap, p.id, now),
       total: totals[p.id] ?? 0,
+      reaction: recentReaction(snap, p.id, now),
       guessed: cur ? entryOf(snap, cur.index, p.id) != null : false,
       ready: cur ? snap.raw[F.ready(cur.index, p.id)] === '1' : false,
     };
@@ -489,8 +496,14 @@ export function buildView(snap: Snapshot, pid: string, now: number, chatSince = 
     news: d.news ? buildNewsView(snap, pid, d.news) : null,
     newsResult: d.newsDone ? { answer: newsInfo(snap), entries: newsEntries(snap) } : null,
     jokersEnabled: jokersEnabled(snap),
+    rematch: json<{ code: string; by: string }>(snap.raw[F.rematch]),
     myJokers: { hand: handOf(snap, pid), used: plays.filter((p) => p.pid === pid).map((p) => p.id) },
   };
+}
+
+function recentReaction(snap: Snapshot, pid: string, now: number): { kind: ReactionKind; at: number } | null {
+  const r = json<{ kind: ReactionKind; at: number }>(snap.raw[F.react(pid)]);
+  return r && now - r.at <= REACTION_SHOW_MS ? r : null;
 }
 
 /** Jokers d'une manche vus par tous, avec les points volés (jamais plus que la manche de la cible). */
