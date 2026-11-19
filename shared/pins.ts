@@ -66,6 +66,9 @@ export const PIN_IDS = new Set(PINS.map((p) => p.id));
 /** Épingle de départ, possédée par tout le monde (la punaise rouge classique). */
 export const STARTER_PIN = 'punaise';
 
+/** Score d'une partie solo (Breaking News comprise) qui rapporte une enveloppe kraft. */
+export const SOLO_PRIZE_SCORE = 20_000;
+
 /**
  * Anciennes épingles (badges illustrés) → nouvelles épingles de même rareté,
  * pour que les collections déjà gagnées soient conservées.

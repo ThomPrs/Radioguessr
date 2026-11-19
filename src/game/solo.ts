@@ -10,7 +10,9 @@ import { hashString } from '../../shared/rng';
 import { createQslCard } from '../../shared/qsl';
 import { NEWS_INTRO_MS, NEWS_LISTEN_MS, pickNewsSlot, type NewsAnswer, type TrackInfo } from '../../shared/blindtest';
 import { musicApi } from '../music/client';
-import { collectCard, recordGame } from '../state/save';
+import { drawPin, SOLO_PRIZE_SCORE, type PinDef } from '../../shared/pins';
+import type { AchievementDef } from '../achievements/catalog';
+import { awardPin, collectCard, recordGame, unlockAchievements } from '../state/save';
 import { nearestCity, preloadPlaces } from './places';
 import { StationPool } from './station-pool';
 
@@ -66,6 +68,10 @@ export class SoloGame {
   readonly news = signal<SoloNews | null>(null);
   /** Résultat de la Breaking News une fois passée (récapitulatif). */
   readonly newsResult = signal<{ entry: NewsAnswer | null; answer: TrackInfo | null } | null>(null);
+  /** Enveloppe kraft gagnée par une très bonne partie. */
+  readonly prize = signal<{ pin: PinDef; count: number } | null>(null);
+  /** Succès obtenus pendant cette partie. */
+  readonly newStamps = signal<AchievementDef[]>([]);
   /** Manche (0..3) après laquelle tombe la Breaking News ; -1 si désactivée. */
   private readonly newsAfter: number;
   private newsTimers: ReturnType<typeof setTimeout>[] = [];
@@ -173,7 +179,21 @@ export class SoloGame {
     }
     if (this.isLastRound) {
       this.player.stop();
-      recordGame(this.game.value.rounds, this.newsResult.value?.entry?.score ?? 0);
+      const rounds = this.game.value.rounds;
+      const news = this.newsResult.value?.entry ?? null;
+      recordGame(rounds, news?.score ?? 0);
+      const total = this.totalScore.value;
+      if (total >= SOLO_PRIZE_SCORE) {
+        const pin = drawPin();
+        this.prize.value = { pin, count: awardPin(pin.id) };
+      }
+      this.newStamps.value = unlockAchievements({
+        mode: 'world',
+        distances: rounds.map((r) => r.distanceKm),
+        hintsUsed: rounds.reduce((n, r) => n + r.hints.length, 0),
+        total,
+        news,
+      });
       this.game.value = { ...this.game.value, phase: 'finished' };
       this.phase.value = 'finished';
       return;

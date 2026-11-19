@@ -22,6 +22,7 @@ import { goHome, openDuelLobby } from '../app';
 import { BreakingNews } from '../components/BreakingNews';
 import { ChatPanel } from '../components/ChatPanel';
 import { KraftEnvelope } from '../components/KraftEnvelope';
+import { StampStrip } from '../achievements/StampStrip';
 import { PinArt } from '../pins/PinArt';
 import { AvatarView } from '../profile/Avatar';
 import { EnvelopeReveal } from '../components/EnvelopeReveal';
@@ -546,6 +547,8 @@ function Results({ session, view }: { session: DuelSession; view: RoomView }) {
               )}
             </tbody>
           </table>
+
+          <StampStrip stamps={session.newStamps.value} paused={prize != null && prizeOpen} />
 
           <h2 class="recap-subtitle">{t.recap.cards}</h2>
           {cards.length ? (

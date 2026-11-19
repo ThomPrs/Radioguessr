@@ -1,6 +1,8 @@
 // Profil : carte de membre du radio-club (pseudo, portrait, fond) et tableau de liège des épingles.
 
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
+import { ACHIEVEMENTS, FAMILY_ORDER } from '../achievements/catalog';
+import { AchievementStamp, FAMILY_INK } from '../achievements/AchievementStamp';
 import { AVATAR_BGS, AVATAR_FACES } from '../../shared/avatars';
 import { MAX_NAME_LENGTH } from '../../shared/duel';
 import { PINS, RARITY_ORDER, RARITY_WEIGHTS, pinById } from '../../shared/pins';
@@ -11,7 +13,7 @@ import { PinArt } from '../pins/PinArt';
 import { hashString } from '../../shared/rng';
 import { PinMarker } from '../pins/PinMarker';
 import { AvatarView } from '../profile/Avatar';
-import { save, updateProfile } from '../state/save';
+import { markAchievementsSeen, save, updateProfile } from '../state/save';
 
 export function Profile() {
   const { profile, pins, album, stats } = save.value;
@@ -21,6 +23,11 @@ export function Profile() {
   const weightSum = RARITY_ORDER.reduce((sum, r) => sum + RARITY_WEIGHTS[r], 0);
   const rows = RARITY_ORDER.map((rarity) => ({ rarity, pins: PINS.filter((p) => p.rarity === rarity) }));
   const current = pinById(profile.pin);
+  const { achievements, achievementsSeenAt } = save.value;
+  // Les tampons obtenus depuis la dernière visite restent marqués « nouveau » jusqu'à la sortie de l'écran.
+  const [seenAt] = useState(achievementsSeenAt);
+  useEffect(() => () => markAchievementsSeen(), []);
+  const stampCount = ACHIEVEMENTS.filter((a) => achievements[a.id]).length;
 
   const saveName = () => updateProfile({ name });
 
@@ -161,6 +168,36 @@ export function Profile() {
             </div>
           </div>
         )}
+
+        <h2>
+          {t.stamps.board} <small class="board-count">{t.stamps.count(stampCount, ACHIEVEMENTS.length)}</small>
+        </h2>
+        <p class="board-help">{t.stamps.help}</p>
+        <div class="stamp-book">
+          {FAMILY_ORDER.map((family) => (
+            <section key={family} class="stamp-page" style={{ '--ink-family': FAMILY_INK[family] }}>
+              <h3 class="stamp-family">{t.stamps.family[family]}</h3>
+              <ul class="stamp-grid">
+                {ACHIEVEMENTS.filter((a) => a.family === family).map((a) => {
+                  const at = achievements[a.id];
+                  const [name, goal] = t.stamps.list[a.id] ?? [a.id, ''];
+                  const isNew = at != null && (seenAt == null || at > seenAt);
+                  return (
+                    <li key={a.id} class={`stamp-cell${at ? '' : ' is-locked'}`}>
+                      {isNew && <span class="stamp-new">{t.stamps.isNew}</span>}
+                      <AchievementStamp def={a} earned={at != null} />
+                      <strong>{name}</strong>
+                      <small>{goal}</small>
+                      <small class="stamp-date">
+                        {at ? t.stamps.on(new Date(at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })) : t.stamps.locked}
+                      </small>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
       </div>
     </main>
   );

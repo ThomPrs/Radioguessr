@@ -16,9 +16,11 @@ interface Props {
   /** Nombre d'exemplaires possédés après ce gain (1 = nouvelle). */
   count: number;
   onClose: () => void;
+  /** Titre au-dessus de l'enveloppe (par défaut : victoire en multijoueur). */
+  title?: string;
 }
 
-export function KraftEnvelope({ pin, count, onClose }: Props) {
+export function KraftEnvelope({ pin, count, onClose, title = t.pins.prizeTitle }: Props) {
   const instant = reducedMotion.value;
   const [step, setStep] = useState<Step>(instant ? 'pinned' : 'arrive');
   const [opened, setOpened] = useState(instant);
@@ -68,8 +70,8 @@ export function KraftEnvelope({ pin, count, onClose }: Props) {
   }, [step, opened, onClose]);
 
   return (
-    <div class="modal kraft-modal" role="dialog" aria-modal="true" aria-label={t.pins.prizeTitle}>
-      <p class="kraft-title">{t.pins.prizeTitle}</p>
+    <div class="modal kraft-modal" role="dialog" aria-modal="true" aria-label={title}>
+      <p class="kraft-title">{title}</p>
 
       <div class={`kraft-stage step-${step} rarity-${pin.rarity}`}>
         <div class="kraft-burst" aria-hidden="true" />

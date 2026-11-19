@@ -6,6 +6,7 @@ import { DEFAULT_AVATAR, cleanLook, type Avatar } from '../../shared/avatars';
 import { cleanName } from '../../shared/duel';
 import { PIN_IDS, STARTER_PIN, normalizePinId } from '../../shared/pins';
 import { collect, type CollectOutcome, type QslCard } from '../../shared/qsl';
+import { newlyEarned, type AchievementDef, type GameFacts } from '../achievements/catalog';
 import type { Round } from '../../shared/types';
 
 export const SAVE_KEY = 'radioguessr:save';
@@ -55,6 +56,10 @@ export interface SaveV2 {
   profile: Profile;
   stats: Stats;
   prefs: Prefs;
+  /** Succès obtenus : identifiant → date ISO. */
+  achievements: Record<string, string>;
+  /** Dernière visite du carnet : les succès plus récents sont marqués « nouveau ». */
+  achievementsSeenAt: string | null;
 }
 
 export type SaveData = SaveV2;
@@ -75,6 +80,8 @@ export function defaultSave(): SaveData {
     profile: { name: '', avatar: { ...DEFAULT_AVATAR }, pin: STARTER_PIN },
     stats: { gamesPlayed: 0, bestScore: 0, totalScore: 0, roundsPlayed: 0, bestDistanceKm: null, duels: { won: 0, lost: 0, draw: 0 } },
     prefs: { radioVolume: 0.8, sfxVolume: 0.6, muted: false, motion: 'system', albumShowMissing: true, breakingNews: true },
+    achievements: {},
+    achievementsSeenAt: null,
   };
 }
 
@@ -124,6 +131,8 @@ export function migrate(raw: unknown): SaveData {
     },
     stats: { ...def.stats, ...d.stats, duels: { ...def.stats.duels, ...d.stats?.duels } },
     prefs: { ...def.prefs, ...d.prefs },
+    achievements: d.achievements && typeof d.achievements === 'object' ? d.achievements : {},
+    achievementsSeenAt: typeof d.achievementsSeenAt === 'string' ? d.achievementsSeenAt : null,
   };
 }
 
@@ -214,4 +223,22 @@ export function updateProfile(patch: Partial<Profile>): void {
 
 export function updatePrefs(patch: Partial<Prefs>): void {
   save.value = { ...save.value, prefs: { ...save.value.prefs, ...patch } };
+}
+
+/**
+ * Enregistre les succès remplis (sur la sauvegarde, et sur la partie qui vient de finir si on la donne).
+ * Renvoie ceux qui viennent d'être obtenus.
+ */
+export function unlockAchievements(game?: GameFacts): AchievementDef[] {
+  const earned = newlyEarned({ save: save.value, game });
+  if (earned.length === 0) return [];
+  const at = new Date().toISOString();
+  const achievements = { ...save.value.achievements };
+  for (const a of earned) achievements[a.id] = at;
+  save.value = { ...save.value, achievements };
+  return earned;
+}
+
+export function markAchievementsSeen(): void {
+  save.value = { ...save.value, achievementsSeenAt: new Date().toISOString() };
 }

@@ -1,0 +1,71 @@
+/* ── Succès tamponnés ──────────────────────────────────────────────────── */
+.achievement-stamp { display: block; flex: none; overflow: visible; }
+.achievement-stamp.is-locked { opacity: 0.55; }
+
+/* Carnet du profil : une page de papier ligné par famille */
+.stamp-book { display: flex; flex-direction: column; gap: 14px; }
+.stamp-page {
+  --ink-family: var(--ink);
+  padding: 12px 16px 16px;
+  background-color: #fbf6ea;
+  background-image: repeating-linear-gradient(0deg, transparent 0 27px, rgb(47 93 140 / 0.12) 27px 28px);
+  border-left: 6px solid var(--ink-family);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.25);
+  color: var(--ink);
+}
+.stamp-family {
+  margin: 0 0 10px;
+  font-family: var(--font-title);
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-family);
+}
+.stamp-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(132px, 42%), 1fr));
+  gap: 14px 10px;
+}
+.stamp-cell .achievement-stamp { width: min(104px, 100%); height: auto; }
+.stamp-cell { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.stamp-cell strong { font-family: var(--font-title); font-size: 0.85rem; margin-top: 4px; }
+.stamp-cell small { font-size: 0.75rem; line-height: 1.25; opacity: 0.85; }
+.stamp-cell .stamp-date { font-style: italic; opacity: 0.65; }
+.stamp-cell.is-locked strong { opacity: 0.6; }
+.stamp-new {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  z-index: 1;
+  padding: 1px 6px;
+  font-family: var(--font-title);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: var(--paper);
+  background: var(--stamp-red);
+  transform: rotate(8deg);
+}
+
+/* Bandeau « Nouveaux tampons ! » en fin de partie */
+.stamp-strip ul { list-style: none; margin: 0; padding: 4px 0 8px; display: flex; flex-wrap: wrap; gap: 12px 18px; }
+.stamp-strip li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 96px;
+  text-align: center;
+  opacity: 0;
+  --rot: 0deg;
+  animation: stamp-thump 0.28s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+}
+.stamp-strip.is-paused li { animation-play-state: paused; }
+.stamp-strip-name { font-family: var(--font-title); font-size: 0.75rem; }
+@media (prefers-reduced-motion: reduce) { .stamp-strip li { animation: none; opacity: 1; } }
+
+/* Récapitulatif solo : enveloppe gagnée ou points manquants */
+.recap-prize { margin: 4px 0 10px; font-size: 0.9rem; font-style: italic; opacity: 0.85; }
+.recap-prize.is-won { font-style: normal; font-weight: bold; color: var(--stamp-red); opacity: 1; }

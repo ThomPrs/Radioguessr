@@ -1,7 +1,11 @@
 // Récapitulatif de fin de partie : les 5 manches sur une carte, score total.
 
 import { countryNameFr } from '../../shared/countries';
+import { useState } from 'preact/hooks';
+import { SOLO_PRIZE_SCORE } from '../../shared/pins';
 import { MAX_ROUND_SCORE, ROUNDS_PER_GAME } from '../../shared/scoring';
+import { StampStrip } from '../achievements/StampStrip';
+import { KraftEnvelope } from '../components/KraftEnvelope';
 import { goHome, startWorldGame } from '../app';
 import { MapView } from '../components/MapView';
 import { formatInt, formatKm } from '../format';
@@ -14,6 +18,8 @@ export function Recap({ game }: { game: SoloGame }) {
   const total = game.totalScore.value;
   const max = MAX_ROUND_SCORE * ROUNDS_PER_GAME;
   const verdict = t.recap.verdicts.find(([min]) => total >= min)?.[1] ?? '';
+  const prize = game.prize.value;
+  const [prizeOpen, setPrizeOpen] = useState(prize != null);
 
   return (
     <main class="desk game-layout">
@@ -24,6 +30,18 @@ export function Recap({ game }: { game: SoloGame }) {
           <span class="recap-total-max">{t.recap.outOf(formatInt(max))}</span>
         </p>
         <p class="recap-verdict">{verdict}</p>
+        {prize ? (
+          <p class="recap-prize is-won">
+            {t.pins.soloPrizeWon}{' '}
+            {!prizeOpen && (
+              <button class="link-button" onClick={() => setPrizeOpen(true)}>
+                {t.pins.soloPrizeOpen}
+              </button>
+            )}
+          </p>
+        ) : (
+          <p class="recap-prize">{t.pins.soloPrizeMissing(formatInt(SOLO_PRIZE_SCORE - total))}</p>
+        )}
 
         <ol class="recap-list">
           {rounds.map((r) => (
@@ -48,6 +66,8 @@ export function Recap({ game }: { game: SoloGame }) {
           </p>
         )}
 
+        <StampStrip stamps={game.newStamps.value} paused={prizeOpen} />
+
         <h2 class="recap-subtitle">{t.recap.cards}</h2>
         {rounds.some((r) => r.card && r.qsl !== 'kept') ? (
           <div class="recap-cards">
@@ -69,6 +89,9 @@ export function Recap({ game }: { game: SoloGame }) {
         </div>
       </section>
 
+      {prize && prizeOpen && (
+        <KraftEnvelope pin={prize.pin} count={prize.count} title={t.pins.soloPrizeTitle} onClose={() => setPrizeOpen(false)} />
+      )}
       <section class="game-map map-sheet">
         <MapView
           onReady={(m) => m.showSummary(rounds.map((r) => ({ station: r.station, guess: r.guess })))}

@@ -9,7 +9,8 @@ import { startStatic, stopStatic, typeClick } from '../audio/sfx';
 import { nearestCity, preloadPlaces } from '../game/places';
 import { getPlayer } from '../game/solo';
 import { drawPin, type PinDef } from '../../shared/pins';
-import { awardPin, collectCard, recordDuel } from '../state/save';
+import type { AchievementDef } from '../achievements/catalog';
+import { awardPin, collectCard, recordDuel, unlockAchievements } from '../state/save';
 import { ApiError, api, forgetIdentity, type Identity } from './client';
 
 export type ConnectionState = 'ok' | 'retrying' | 'expired' | 'forbidden';
@@ -33,6 +34,8 @@ export class DuelSession {
   readonly chat = signal<ChatMessage[]>([]);
   /** Épingle gagnée en fin de partie (vainqueur, ex æquo compris), à ouvrir dans l'enveloppe kraft. */
   readonly prize = signal<{ pin: PinDef; count: number } | null>(null);
+  /** Succès obtenus pendant cette partie. */
+  readonly newStamps = signal<AchievementDef[]>([]);
   /** Erreur du dernier envoi de message (trop rapide…). */
   readonly chatError = signal<string | null>(null);
 
@@ -137,6 +140,16 @@ export class DuelSession {
           const pin = drawPin();
           this.prize.value = { pin, count: awardPin(pin.id) };
         }
+        const mine = v.history.map((h) => h.entries[v.youId] ?? null);
+        this.newStamps.value = unlockAchievements({
+          mode: 'duel',
+          distances: mine.map((e) => e?.distanceKm ?? null),
+          hintsUsed: mine.reduce((n, e) => n + (e?.hints.length ?? 0), 0),
+          total: v.players.find((p) => p.id === v.youId)?.total ?? 0,
+          news: v.newsResult?.entries[v.youId] ?? null,
+          players: v.players.length,
+          result,
+        });
       }
     }
   }

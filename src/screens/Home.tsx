@@ -34,7 +34,9 @@ export function Home() {
         <AvatarView avatar={profile.avatar} size={56} />
         <span class="home-profile-text">
           <span class="home-card-title">{t.home.profile}</span>
-          <span class="home-card-desc">{t.profile.homeDesc(profile.name)}</span>
+          <span class="home-card-desc">
+            {t.profile.homeDesc(profile.name)} · {t.profile.homeStamps(Object.keys(save.value.achievements).length)}
+          </span>
         </span>
         <span class="home-profile-pin">
           <PinMarker pinId={profile.pin} />

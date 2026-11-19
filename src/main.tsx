@@ -2,12 +2,14 @@ import { render } from 'preact';
 import { App } from './app';
 import { t } from './i18n/fr';
 import { installPrefs } from './state/prefs';
+import { unlockAchievements } from './state/save';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/qsl.css';
 import './styles/duel.css';
 import './styles/pins.css';
 import './styles/news.css';
+import './styles/achievements.css';
 
 document.title = t.app.tabTitle;
 
@@ -20,4 +22,6 @@ document.body.insertAdjacentHTML(
   </filter></svg>`,
 );
 installPrefs();
+// Succès déjà mérités d'après la sauvegarde (album, épingles, statistiques) : attribués sans animation.
+unlockAchievements();
 render(<App />, document.getElementById('app')!);
