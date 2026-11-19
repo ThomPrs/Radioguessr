@@ -25,7 +25,8 @@ import { cleanLook, type PlayerLook } from '../../shared/avatars.js';
 import { pickNewsSlot, type NewsAnswer } from '../../shared/blindtest.js';
 import { checkGuess, music, pickTrack } from './music.js';
 import { fetchCountries, fetchCountryStations, pickCountry } from '../../shared/radio-browser.js';
-import { haversineKm, roundScore } from '../../shared/scoring.js';
+import { haversineKm } from '../../shared/scoring.js';
+import { canPlay, cleanHand, jokerById, scoreWithJokers, type JokerId, type PlayRefusal } from '../../shared/jokers.js';
 import type { Continent, HintKind, Station } from '../../shared/types.js';
 import {
   F,
@@ -41,6 +42,12 @@ import {
   newsAnswerOf,
   newsInfo,
   newsPlan,
+  handOf,
+  jokerPlays,
+  jokersEnabled,
+  personalDeadline,
+  scoreMods,
+  type JokerPlay,
   parseSnapshot,
   playerById,
   roundStart,
@@ -91,10 +98,27 @@ async function playerOf(snap: Snapshot, cred: Credentials): Promise<PlayerRecord
   return p && p.tokenHash === (await sha256(cred.token)) ? p : null;
 }
 
-async function newPlayer(name: string, now: number, color: number, look: PlayerLook): Promise<{ record: PlayerRecord; token: string }> {
+async function newPlayer(name: string, now: number, color: number, look: PlayerLook, hand: JokerId[] = []): Promise<{ record: PlayerRecord; token: string }> {
   const token = randomHex(16);
-  return { record: { id: randomHex(8), tokenHash: await sha256(token), name, joinedAt: now, color, avatar: look.avatar, pin: look.pin }, token };
+  return { record: { id: randomHex(8), tokenHash: await sha256(token), name, joinedAt: now, color, avatar: look.avatar, pin: look.pin, hand }, token };
 }
+
+/** Main de jokers reçue d'un client (la possession des cartes n'est pas vérifiable : comme l'épingle). */
+function handFrom(lookRaw: unknown): JokerId[] {
+  return cleanHand((lookRaw as { hand?: unknown } | undefined)?.hand);
+}
+
+const REFUSAL: Record<PlayRefusal, string> = {
+  disabled: 'Jokers désactivés dans ce salon',
+  unknown: 'Joker inconnu',
+  'not-in-hand': 'Ce joker n’est pas dans votre main',
+  used: 'Joker déjà joué dans cette partie',
+  solo: 'Joker réservé au multijoueur',
+  closed: 'Manche close',
+  guessed: 'Épingle déjà validée',
+  'no-pin': 'Posez d’abord votre épingle',
+  target: 'Cible invalide',
+};
 
 /** Première couleur libre (les couleurs des joueurs partis pendant l'attente sont réutilisées). */
 function freeColor(snap: Snapshot): number {
@@ -185,7 +209,7 @@ export async function createRoom(nameRaw: unknown, now = Date.now(), stations?: 
   if (!name) throw new DuelError('bad-request', 400, 'Pseudo manquant');
   const store = getStore();
   const rounds = stations ?? (await pickRoomStations());
-  const { record, token } = await newPlayer(name, now, 0, cleanLook(lookRaw));
+  const { record, token } = await newPlayer(name, now, 0, cleanLook(lookRaw), handFrom(lookRaw));
 
   for (let attempt = 0; attempt < 8; attempt++) {
     let code = '';
@@ -217,7 +241,7 @@ export async function joinRoom(code: string, nameRaw: unknown, cred: Credentials
     await store.hincrby(k, F.count, -1);
     throw new DuelError('full', 409, 'Salon complet');
   }
-  const { record, token } = await newPlayer(name, now, freeColor(snap), cleanLook(lookRaw));
+  const { record, token } = await newPlayer(name, now, freeColor(snap), cleanLook(lookRaw), handFrom(lookRaw));
   await store.hset(k, { [F.player(record.id)]: JSON.stringify(record), [F.seen(record.id)]: String(now) });
   await postChat(store, code, systemMessage(`${name} a rejoint le salon.`, now));
   await store.expire(k, ROOM_TTL_SECONDS);
@@ -253,8 +277,9 @@ export async function act(code: string, cred: Credentials, body: DuelAction, now
   const pid = me.id;
   const d = derive(snap, now);
   const cur = d.current;
+  // Écoute ouverte pour moi : mon chrono personnel compte (Antenne longue).
   const listening = (round: number) =>
-    d.status === 'playing' && cur != null && cur.index === round && cur.revealAt == null && now <= cur.deadline + GRACE_MS;
+    d.status === 'playing' && cur != null && cur.index === round && cur.revealAt == null && now <= personalDeadline(snap, round, pid, cur.start) + GRACE_MS;
 
   let hint: string | undefined;
   switch (body.action) {
@@ -276,7 +301,10 @@ export async function act(code: string, cred: Credentials, body: DuelAction, now
     case 'options': {
       if (d.status !== 'waiting') throw new DuelError('started', 409, 'Partie déjà lancée');
       if (effectiveHost(snap, now) !== pid) throw new DuelError('forbidden', 403, 'Seul l’hôte règle les options');
-      await store.hset(k, { [F.newsOpt]: body.breakingNews ? '1' : '0' });
+      const opts: Record<string, string> = {};
+      if (body.breakingNews !== undefined) opts[F.newsOpt] = body.breakingNews ? '1' : '0';
+      if (body.jokers !== undefined) opts[F.jokersOpt] = body.jokers ? '1' : '0';
+      if (Object.keys(opts).length) await store.hset(k, opts);
       break;
     }
     case 'news-answer': {
@@ -313,7 +341,8 @@ export async function act(code: string, cred: Credentials, body: DuelAction, now
       const station = activeStation(snap, body.round);
       const hints = hintsOf(snap, body.round, pid);
       const distanceKm = haversineKm({ lat, lon }, station);
-      const entry: DuelEntry = { lat, lon, at: Math.min(now, cur!.deadline), distanceKm, hints, score: roundScore(distanceKm, hints).score };
+      const myEnd = personalDeadline(snap, body.round, pid, cur!.start);
+      const entry: DuelEntry = { lat, lon, at: Math.min(now, myEnd), distanceKm, hints, score: scoreWithJokers(distanceKm, hints, scoreMods(snap, body.round, pid)).score };
       await store.hsetnx(k, F.entry(body.round, pid), JSON.stringify(entry)); // une seule punaise par manche
       break;
     }
@@ -321,8 +350,49 @@ export async function act(code: string, cred: Credentials, body: DuelAction, now
       if (!listening(body.round) || entryOf(snap, body.round, pid)) throw new DuelError('bad-request', 409, 'Indice impossible');
       if (!['language', 'continent', 'timezone'].includes(body.kind)) throw new DuelError('bad-request', 400);
       const hints = hintsOf(snap, body.round, pid);
-      if (!hints.includes(body.kind)) await store.hset(k, { [F.hints(body.round, pid)]: JSON.stringify([...hints, body.kind]) });
+      if (!hints.includes(body.kind)) {
+        await store.hset(k, { [F.hints(body.round, pid)]: JSON.stringify([...hints, body.kind]) });
+        // Taxe reçue : cet indice compte double (une Taxe pour un indice).
+        if (Number(snap.raw[F.taxPending(pid)] ?? 0) > 0 && !snap.raw[F.taxed(body.round, pid)]) {
+          if (await store.hsetnx(k, F.taxed(body.round, pid), body.kind)) await store.hincrby(k, F.taxPending(pid), -1);
+        }
+      }
       hint = hintValue(activeStation(snap, body.round), body.kind as HintKind, now);
+      break;
+    }
+    case 'joker': {
+      const j = jokerById(body.id);
+      const i = Number(body.round);
+      const target = typeof body.target === 'string' ? body.target : null;
+      const opponents = snap.players.filter((p) => p.id !== pid && !isGone(snap, p.id, now)).map((p) => p.id);
+      const plays = jokerPlays(snap);
+      const lat = Number(body.lat);
+      const lon = Number(body.lon);
+      const hasPin = body.lat != null && Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+      const verdict = canPlay(String(body.id), {
+        mode: 'duel',
+        enabled: jokersEnabled(snap),
+        hand: handOf(snap, pid),
+        used: plays.filter((p) => p.pid === pid).map((p) => p.id),
+        listening: listening(i),
+        guessed: entryOf(snap, i, pid) != null,
+        pinPlaced: hasPin,
+        target,
+        opponents,
+      });
+      if (!verdict.ok || !j) throw new DuelError('bad-request', 409, REFUSAL[verdict.ok ? 'unknown' : verdict.reason]);
+      const play: JokerPlay = { pid, id: j.id, round: i, target: j.target === 'opponent' ? target : null, at: now };
+      if (j.id === 'seconde') play.probeKm = haversineKm({ lat, lon }, activeStation(snap, i));
+      const victim = play.target ? playerById(snap, play.target) : undefined;
+      // Bouclier de la cible : il arrête la première attaque de la manche (le joker de l'attaquant est perdu).
+      if (victim && plays.some((p) => p.pid === victim.id && p.id === 'bouclier' && p.round === i)) {
+        if (await store.hsetnx(k, F.shieldUsed(i, victim.id), pid)) play.blocked = true;
+      }
+      if (!(await store.hsetnx(k, F.joker(pid, j.id), JSON.stringify(play)))) break; // déjà joué (double clic)
+      if (j.id === 'taxe' && victim && !play.blocked) await store.hincrby(k, F.taxPending(victim.id), 1);
+      const on = victim ? ` sur ${victim.name}` : '';
+      const stop = play.blocked ? ` Le Bouclier de ${victim!.name} l’arrête !` : '';
+      await postChat(store, code, systemMessage(`${me.name} joue « ${j.name} »${on}.${stop}`, now));
       break;
     }
     case 'skip': {

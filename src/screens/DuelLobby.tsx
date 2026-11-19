@@ -26,7 +26,8 @@ export function DuelLobby({ initialCode = '' }: { initialCode?: string }) {
   const [error, setError] = useState('');
   const resumable = lastIdentity();
 
-  const look = () => ({ avatar: save.value.profile.avatar, pin: save.value.profile.pin });
+  // Apparence et main de jokers du profil, envoyées en créant ou en rejoignant le salon.
+  const look = () => ({ avatar: save.value.profile.avatar, pin: save.value.profile.pin, hand: save.value.hand });
 
   const fail = (err: unknown) => {
     const c = err instanceof ApiError ? err.code : 'network';

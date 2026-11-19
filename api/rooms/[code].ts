@@ -24,7 +24,7 @@ export async function POST(req: Request): Promise<Response> {
     const code = codeFromUrl(req);
     const body = await readJson<DuelAction>(req);
     if (body.action === 'join') {
-      return json(await joinRoom(code, body.name, credentials(req), Date.now(), { avatar: body.avatar, pin: body.pin }));
+      return json(await joinRoom(code, body.name, credentials(req), Date.now(), { avatar: body.avatar, pin: body.pin, hand: body.hand }));
     }
     return json(await act(code, credentials(req), body, Date.now(), chatSince(req)));
   } catch (err) {

@@ -2,6 +2,7 @@
 
 import type { Avatar } from './avatars.js';
 import type { NewsAnswer, TrackInfo } from './blindtest.js';
+import type { JokerId } from './jokers.js';
 import type { HintKind, Station } from './types.js';
 
 export const DUEL_ROUNDS = 5;
@@ -96,7 +97,16 @@ export interface RoundView {
   deadline: number;
   /** Instant où la manche suivante démarrera d'office (pendant la révélation). */
   nextAt: number | null;
-  you: { guessed: boolean; hints: HintKind[]; hintValues: Partial<Record<HintKind, string>>; ready: boolean; entry: DuelEntry | null };
+  you: {
+    guessed: boolean;
+    hints: HintKind[];
+    hintValues: Partial<Record<HintKind, string>>;
+    ready: boolean;
+    entry: DuelEntry | null;
+    /** Mon chrono (Antenne longue l'allonge). */
+    deadline: number;
+    jokers: MyJokerRound;
+  };
   /** Rapports de tous les joueurs, révélés uniquement en phase « revealed ». */
   entries: Record<string, DuelEntry | null> | null;
   /** Révélée uniquement en phase « revealed ». */
@@ -107,6 +117,37 @@ export interface HistoryItem {
   index: number;
   station: Station;
   entries: Record<string, DuelEntry | null>;
+  /** Jokers joués pendant la manche (publics à la révélation), avec les points volés par Pickpocket. */
+  plays?: PublicPlay[];
+}
+
+/** Joker joué, tel que tout le salon peut le voir. */
+export interface PublicPlay {
+  pid: string;
+  id: JokerId;
+  target: string | null;
+  /** Arrêté par le Bouclier de la cible. */
+  blocked: boolean;
+  /** Pickpocket : points effectivement volés. */
+  points?: number;
+}
+
+/** Effet d'un joker adverse subi pendant la manche. */
+export interface Attack {
+  id: JokerId;
+  from: string;
+  /** Fin de l'effet (ms, horloge serveur). */
+  until: number;
+}
+
+/** Ce que mes jokers m'apprennent pendant la manche. */
+export interface MyJokerRound {
+  /** Jokers que j'ai joués pendant cette manche. */
+  active: JokerId[];
+  radar: { lat: number; lon: number } | null;
+  probeKm: number | null;
+  spied: { pid: string; lat: number; lon: number } | null;
+  attacks: Attack[];
 }
 
 export interface RoomView {
@@ -127,6 +168,10 @@ export interface RoomView {
   news: NewsView | null;
   /** Résultat de la Breaking News une fois passée (tableau des résultats). */
   newsResult: { answer: TrackInfo | null; entries: Record<string, NewsAnswer | null> } | null;
+  /** Cartes Joker activées par l'hôte. */
+  jokersEnabled: boolean;
+  /** Ma main (envoyée en rejoignant) et les jokers déjà joués. */
+  myJokers: { hand: JokerId[]; used: JokerId[] };
 }
 
 export interface JoinResponse {
@@ -136,14 +181,15 @@ export interface JoinResponse {
 }
 
 export type DuelAction =
-  | { action: 'join'; name: string; avatar?: Avatar; pin?: string | null }
+  | { action: 'join'; name: string; avatar?: Avatar; pin?: string | null; hand?: string[] }
   | { action: 'start' }
   | { action: 'guess'; round: number; lat: number; lon: number }
   | { action: 'hint'; round: number; kind: HintKind }
   | { action: 'skip'; round: number; from: number }
   | { action: 'ready'; round: number }
   | { action: 'chat'; text: string }
-  | { action: 'options'; breakingNews: boolean }
+  | { action: 'options'; breakingNews?: boolean; jokers?: boolean }
+  | { action: 'joker'; round: number; id: string; target?: string | null; lat?: number; lon?: number }
   | { action: 'news-answer'; guessId: number }
   | { action: 'news-ready' }
   | { action: 'leave' };

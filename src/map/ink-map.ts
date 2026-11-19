@@ -219,9 +219,9 @@ export class InkMap {
     this.map.flyToBounds(circle.getBounds().pad(0.15), { maxZoom: 5, duration: 0.8 });
   }
 
-  /** Joker Brouillard : la carte est noyée dans la brume (effet dessiné en CSS). */
-  setFog(on: boolean): void {
-    this.map.getContainer().classList.toggle('is-foggy', on);
+  /** Joker Espion : l'épingle validée d'un adversaire, dans sa couleur. */
+  showSpy(pos: LatLon, color: string, label: string, pinId: string): void {
+    L.marker([pos.lat, pos.lon], { icon: pinMarkerIcon(pinId, { ring: color, label }), interactive: false }).addTo(this.overlay);
   }
 
   /** Remet la carte à zéro pour une nouvelle manche. */

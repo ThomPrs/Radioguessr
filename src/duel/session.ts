@@ -11,7 +11,7 @@ import { getPlayer } from '../game/solo';
 import { drawPin, type PinDef } from '../../shared/pins';
 import type { AchievementDef } from '../achievements/catalog';
 import type { JokerDef } from '../../shared/jokers';
-import { awardPin, collectCard, recordDuel, tickMail, unlockAchievements } from '../state/save';
+import { awardPin, collectCard, countJokerPlayed, recordDuel, tickMail, unlockAchievements } from '../state/save';
 import { ApiError, api, forgetIdentity, type Identity } from './client';
 
 export type ConnectionState = 'ok' | 'retrying' | 'expired' | 'forbidden';
@@ -248,6 +248,34 @@ export class DuelSession {
     const r = this.view.value?.round;
     if (r) await this.send({ action: 'hint', round: r.index, kind });
   }
+
+  /** Option Jokers (hôte, avant le lancement). */
+  async setJokers(on: boolean): Promise<void> {
+    await this.send({ action: 'options', jokers: on });
+  }
+
+  /** Joue un joker (cible pour les jokers multi ; épingle posée pour Seconde écoute). */
+  async playJoker(id: string, target: string | null = null): Promise<boolean> {
+    const r = this.view.value?.round;
+    if (!r) return false;
+    const p = this.pending.value;
+    this.jokerError.value = null;
+    this.busy.value = true;
+    try {
+      const res = await api.act(this.id, { action: 'joker', round: r.index, id, target, ...(p ? { lat: p.lat, lon: p.lon } : {}) }, this.lastChatId);
+      this.apply(res.view);
+      countJokerPlayed();
+      return true;
+    } catch (err) {
+      this.jokerError.value = err instanceof ApiError ? err.detail || err.code : 'network';
+      return false;
+    } finally {
+      this.busy.value = false;
+    }
+  }
+
+  /** Refus du serveur pour le dernier joker. */
+  readonly jokerError = signal<string | null>(null);
 
   /** Option Breaking News (hôte, avant le lancement). */
   async setBreakingNews(on: boolean): Promise<void> {

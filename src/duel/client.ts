@@ -113,8 +113,8 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, 
 }
 
 export const api = {
-  create: (name: string, look: PlayerLook) => request<JoinResponse>('POST', '/api/rooms', { name, ...look }),
-  join: (code: string, name: string, id: Identity | null, look: PlayerLook) =>
+  create: (name: string, look: PlayerLook & { hand?: string[] }) => request<JoinResponse>('POST', '/api/rooms', { name, ...look }),
+  join: (code: string, name: string, id: Identity | null, look: PlayerLook & { hand?: string[] }) =>
     request<JoinResponse>('POST', `/api/rooms/${code}`, { action: 'join', name, ...look } satisfies DuelAction, id),
   get: (id: Identity, chatSince = 0) => request<RoomView>('GET', `/api/rooms/${id.code}?chat=${chatSince}`, undefined, id),
   act: (id: Identity, action: Exclude<DuelAction, { action: 'join' }>, chatSince = 0) =>

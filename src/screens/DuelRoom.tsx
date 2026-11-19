@@ -37,6 +37,12 @@ import { formatInt, formatKm } from '../format';
 import { t } from '../i18n/fr';
 import type { InkMap } from '../map/ink-map';
 import { QslCardView } from '../qsl/QslCardView';
+import { RADAR_RADIUS_KM, canPlay, jokerById, playableIn } from '../../shared/jokers';
+import { JokerTray } from '../jokers/JokerTray';
+import { JokerVoucher } from '../jokers/JokerVoucher';
+import { startStatic, stopStatic } from '../audio/sfx';
+import { getPlayer } from '../game/solo';
+import { save } from '../state/save';
 
 const HINT_ORDER: HintKind[] = ['language', 'continent', 'timezone'];
 
@@ -121,6 +127,38 @@ function Waiting({ session, view }: { session: DuelSession; view: RoomView }) {
               <small>{isHost ? t.news.optionDesc : t.news.hostOnly}</small>
             </span>
           </label>
+
+          <label class="news-option joker-option" title={isHost ? undefined : t.news.hostOnly}>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={view.jokersEnabled}
+              disabled={!isHost || session.busy.value}
+              onChange={(e) => {
+                clickSound();
+                void session.setJokers(e.currentTarget.checked);
+              }}
+            />
+            <span class="news-option-text">
+              <strong class="news-option-title">{t.jokers.hostOption}</strong>
+              <small>{isHost ? t.jokers.hostOptionDesc : t.news.hostOnly}</small>
+            </span>
+          </label>
+          {view.jokersEnabled && (
+            <>
+              <p class="waiting-subtitle">{t.jokers.myHand}</p>
+              {view.myJokers.hand.length === 0 ? (
+                <p class="duel-waiting-note">{t.jokers.noHand}</p>
+              ) : (
+                <div class="waiting-hand">
+                  {view.myJokers.hand.map((id) => {
+                    const j = jokerById(id);
+                    return j ? <JokerVoucher key={id} joker={j} compact /> : null;
+                  })}
+                </div>
+              )}
+            </>
+          )}
 
           {isHost ? (
             <>
@@ -227,8 +265,46 @@ function Playing({ session, view }: { session: DuelSession; view: RoomView }) {
     }
   }, [rc, listening, r.index]);
 
-  const secondsLeft = Math.ceil(session.remaining(r.deadline) / 1000);
-  const progress = Math.min(1, session.remaining(r.deadline) / ROUND_TIME_MS);
+  const myDeadline = r.you.deadline ?? r.deadline;
+  const secondsLeft = Math.ceil(session.remaining(myDeadline) / 1000);
+  const progress = Math.min(1, session.remaining(myDeadline) / Math.max(ROUND_TIME_MS, myDeadline - r.startAt));
+
+  // ── Jokers ──
+  const jk = r.you.jokers;
+  const now = session.serverNow.value;
+  const attacks = listening ? (jk?.attacks ?? []).filter((a) => a.until > now) : [];
+  const jammed = attacks.some((a) => a.id === 'brouilleur');
+  const foggy = attacks.some((a) => a.id === 'brouillard');
+  const opponents = view.players.filter((p) => p.id !== view.youId && !p.gone);
+  const hand = view.jokersEnabled ? playableIn('duel', view.myJokers.hand) : [];
+  const spiedPlayer = jk?.spied ? view.players.find((p) => p.id === jk.spied!.pid) : undefined;
+
+  // Radar et Espion : dessinés une fois par manche.
+  const drawn = useRef(new Set<string>());
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !listening) return;
+    if (jk?.radar && !drawn.current.has(`radar${r.index}`)) {
+      drawn.current.add(`radar${r.index}`);
+      m.showRadar(jk.radar, RADAR_RADIUS_KM);
+    }
+    if (jk?.spied && spiedPlayer && !drawn.current.has(`spy${r.index}`)) {
+      drawn.current.add(`spy${r.index}`);
+      m.showSpy(jk.spied, PLAYER_COLORS[spiedPlayer.color]!, spiedPlayer.name, spiedPlayer.pin ?? STARTER_PIN);
+    }
+  }, [jk?.radar, jk?.spied, r.index, listening, mapReady]);
+
+  // Brouilleur : la radio se coupe et grésille.
+  useEffect(() => {
+    if (!jammed) return;
+    const player = getPlayer();
+    player.muted = true;
+    startStatic();
+    return () => {
+      stopStatic();
+      player.muted = save.peek().prefs.muted;
+    };
+  }, [jammed]);
   const nextIn = Math.ceil(session.remaining(r.nextAt) / 1000);
   const radioLabel = radio === 'tuning' ? t.radio.searching : r.station ? shortStationName(r.station.name, 22) : t.radio.unknownStation;
 
@@ -267,6 +343,19 @@ function Playing({ session, view }: { session: DuelSession; view: RoomView }) {
         {radio === 'dead' && listening && <p class="desk-note">{t.duel.deadRadio}</p>}
         {session.connection.value === 'retrying' && <p class="form-error on-desk">{t.duel.retrying}</p>}
 
+        {attacks.map((a) => {
+          const from = view.players.find((p) => p.id === a.from)?.name ?? '?';
+          const text = t.jokers.attacked[a.id]?.(from);
+          return text ? (
+            <p key={`${a.id}${a.from}`} class="joker-attack" role="alert">
+              {text}
+            </p>
+          ) : null;
+        })}
+        {listening && jk?.radar && <p class="desk-note joker-note">{t.jokers.radarNote}</p>}
+        {listening && jk?.probeKm != null && <p class="desk-note joker-note">{t.jokers.probe(formatKm(jk.probeKm))}</p>}
+        {listening && spiedPlayer && <p class="desk-note joker-note">{t.jokers.spied(spiedPlayer.name)}</p>}
+
         {listening && (
           <div class="duel-timer" role="timer" aria-label={t.duel.timeLeft(secondsLeft)}>
             <div class="duel-timer-bar" style={{ transform: `scaleX(${progress})` }} />
@@ -297,7 +386,9 @@ function Playing({ session, view }: { session: DuelSession; view: RoomView }) {
                   {value ? (
                     <span class="hint-used">
                       <span class="hint-value">{value}</span>
-                      <span class="hint-paid">{t.hints.paid(formatInt(HINT_COST[kind]))}</span>
+                      <span class="hint-paid">
+                        {jk?.active.includes('indices') ? t.hints.free : t.hints.paid(formatInt(HINT_COST[kind]))}
+                      </span>
                     </span>
                   ) : (
                     <span class="hint-cost">{t.hints.cost(HINT_COST[kind])}</span>
@@ -305,8 +396,32 @@ function Playing({ session, view }: { session: DuelSession; view: RoomView }) {
                 </button>
               );
             })}
-            {r.you.hints.length > 0 && <p class="hint-total">{t.hints.totalCost(formatInt(hintsCost(r.you.hints)))}</p>}
+            {r.you.hints.length > 0 && !jk?.active.includes('indices') && <p class="hint-total">{t.hints.totalCost(formatInt(hintsCost(r.you.hints)))}</p>}
           </div>
+        )}
+
+        {listening && hand.length > 0 && (
+          <JokerTray
+            jokers={hand}
+            used={view.myJokers.used}
+            targets={opponents.map((p) => ({ id: p.id, name: p.name, color: PLAYER_COLORS[p.color]! }))}
+            busy={session.busy.value}
+            error={session.jokerError.value}
+            check={(id, target) =>
+              canPlay(id, {
+                mode: 'duel',
+                enabled: view.jokersEnabled,
+                hand: view.myJokers.hand,
+                used: view.myJokers.used,
+                listening: listening && now <= myDeadline,
+                guessed: r.you.guessed,
+                pinPlaced: pending != null,
+                target,
+                opponents: opponents.map((p) => p.id),
+              })
+            }
+            onPlay={(id, target) => void session.playJoker(id, target)}
+          />
         )}
 
         {listening && !r.you.guessed && (
@@ -325,6 +440,14 @@ function Playing({ session, view }: { session: DuelSession; view: RoomView }) {
               {[r.station.state, countryNameFr(r.station.countryCode)].filter(Boolean).join(', ')}
             </p>
             <RoundTable players={view.players} entries={r.entries} youId={view.youId} />
+            {view.history
+              .find((h) => h.index === r.index)
+              ?.plays?.filter((p) => p.points)
+              .map((p) => (
+                <p key={p.pid} class="duel-steal">
+                  {nameOf(view, p.pid)} → {nameOf(view, p.target!)} · {t.jokers.stolen(p.points!)}
+                </p>
+              ))}
             {rc ? (
               <div class="report-card">
                 <p class={`report-qsl is-${rc.outcome}`}>{t.qsl.received[rc.outcome]}</p>
@@ -356,6 +479,8 @@ function Playing({ session, view }: { session: DuelSession; view: RoomView }) {
       </section>
 
       <section class="game-map map-sheet">
+        {/* Brouillard : la carte est noyée toute la manche (on peut quand même planter son épingle) */}
+        {foggy && <div class="map-fog" aria-hidden="true" />}
         <MapView
           onReady={(m) => {
             map.current = m;

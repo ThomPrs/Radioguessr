@@ -192,7 +192,7 @@ export function GameScreen({ game }: { game: SoloGame }) {
             jokers={game.hand}
             used={game.jokersUsed.value}
             check={(id) => (void game.guess.value, void game.phase.value, game.jokerCheck(id))}
-            onPlay={(id) => game.playJoker(id)}
+            onPlay={(id) => void game.playJoker(id)}
           />
         )}
 

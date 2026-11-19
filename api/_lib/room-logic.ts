@@ -19,7 +19,20 @@ import {
   type RoomStatus,
   type RoomView,
   type RoundView,
+  type Attack,
+  type MyJokerRound,
+  type PublicPlay,
 } from '../../shared/duel.js';
+import {
+  ANTENNA_BONUS_MS,
+  JAMMER_MS,
+  cleanHand,
+  radarCenter,
+  stolenPoints,
+  type JokerId,
+  type ScoreMods,
+} from '../../shared/jokers.js';
+import { hashString, mulberry32 } from '../../shared/rng.js';
 import { DEFAULT_AVATAR, type Avatar } from '../../shared/avatars.js';
 import { NEWS_INTRO_MS, NEWS_LISTEN_MS, NEWS_REVEAL_MS, type NewsAnswer, type TrackInfo } from '../../shared/blindtest.js';
 import { computeHints, localTimeLabel, utcOffsetLabel } from '../../shared/hints.js';
@@ -34,6 +47,8 @@ export interface PlayerRecord {
   color: number;
   avatar?: Avatar;
   pin?: string | null;
+  /** Main de jokers envoyée en rejoignant. */
+  hand?: string[];
 }
 
 export interface Meta {
@@ -68,7 +83,69 @@ export const F = {
   newsInfo: 'news:info', // morceau (titre, artiste, pochette), pour la révélation
   newsAns: (pid: string) => `news:ans:${pid}`,
   newsReady: (pid: string) => `news:ready:${pid}`,
+  // Jokers
+  jokersOpt: 'opt:jokers',
+  joker: (pid: string, id: string) => `jk:${pid}:${id}`, // une seule fois par partie (HSETNX)
+  taxPending: (pid: string) => `tax:${pid}`, // Taxes reçues, pas encore appliquées
+  taxed: (i: number, pid: string) => `r${i}:tax:${pid}`, // indice taxé dans la manche
+  shieldUsed: (i: number, pid: string) => `r${i}:shield:${pid}`,
 };
+
+// ── Jokers ─────────────────────────────────────────────────────────────────
+
+export interface JokerPlay {
+  pid: string;
+  id: JokerId;
+  round: number;
+  target: string | null;
+  at: number;
+  blocked?: boolean;
+  /** Seconde écoute : distance de l'épingle (non validée) à la station. */
+  probeKm?: number;
+}
+
+export function jokersEnabled(snap: Snapshot): boolean {
+  return snap.raw[F.jokersOpt] === '1';
+}
+
+export function handOf(snap: Snapshot, pid: string): JokerId[] {
+  return cleanHand(playerById(snap, pid)?.hand);
+}
+
+export function jokerPlays(snap: Snapshot): JokerPlay[] {
+  const out: JokerPlay[] = [];
+  for (const [k, v] of Object.entries(snap.raw)) if (k.startsWith('jk:')) {
+    const p = json<JokerPlay>(v);
+    if (p) out.push(p);
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+
+/** Jokers joués (et non arrêtés) par un joueur pendant une manche. */
+function myActive(plays: JokerPlay[], i: number, pid: string): JokerId[] {
+  return plays.filter((p) => p.round === i && p.pid === pid && !p.blocked).map((p) => p.id);
+}
+
+/** Modificateurs de score d'un joueur sur une manche. */
+export function scoreMods(snap: Snapshot, i: number, pid: string, plays = jokerPlays(snap)): ScoreMods {
+  const mine = myActive(plays, i, pid);
+  return {
+    double: mine.includes('double'),
+    floor: mine.includes('filet'),
+    freeHints: mine.includes('indices'),
+    taxedHint: (snap.raw[F.taxed(i, pid)] as HintKind | undefined) ?? null,
+  };
+}
+
+/** Chrono personnel : 90 s, +30 s avec Antenne longue. */
+export function personalDeadline(snap: Snapshot, i: number, pid: string, start: number, plays = jokerPlays(snap)): number {
+  return start + ROUND_TIME_MS + (myActive(plays, i, pid).includes('antenne') ? ANTENNA_BONUS_MS : 0);
+}
+
+/** Centre du cercle Radar : fixe pour un joueur et une manche (même réponse à chaque lecture). */
+export function radarFor(snap: Snapshot, i: number, pid: string): { lat: number; lon: number } {
+  return radarCenter(activeStation(snap, i), mulberry32(hashString(`${snap.meta.code}:${i}:${activeIndex(snap, i)}:${pid}`)));
+}
 
 /** Breaking News programmée pour cette partie (tirée au lancement), ou null. */
 export function newsPlan(snap: Snapshot): { after: number; trackId: number } | null {
@@ -218,10 +295,15 @@ export function derive(snap: Snapshot, now: number): Derived {
       start = now;
       writes.push({ field: F.start(i), value: String(now) });
     }
-    const deadline = start + ROUND_TIME_MS;
+    // Chacun a son chrono (Antenne longue) : la manche dure jusqu'au plus long.
+    const plays = jokerPlays(snap);
+    const ends = Object.fromEntries(snap.players.map((p) => [p.id, personalDeadline(snap, i, p.id, start!, plays)]));
+    const deadline = Math.max(start + ROUND_TIME_MS, ...Object.values(ends));
 
-    const allGuessed = everyoneDid(snap, now, (pid) => entryOf(snap, i, pid) != null);
-    const lastGuess = Math.max(0, ...snap.players.map((p) => entryOf(snap, i, p.id)?.at ?? 0));
+    // Fini pour un joueur : rapport envoyé, ou son chrono est écoulé.
+    const doneAt = (pid: string): number | null => entryOf(snap, i, pid)?.at ?? (now >= ends[pid]! ? ends[pid]! : null);
+    const allGuessed = everyoneDid(snap, now, (pid) => doneAt(pid) != null);
+    const lastGuess = Math.max(0, ...snap.players.map((p) => (isGone(snap, p.id, now) ? (entryOf(snap, i, p.id)?.at ?? 0) : (doneAt(p.id) ?? 0))));
     const revealAt = allGuessed ? Math.min(Math.max(lastGuess, start), deadline) : now >= deadline ? deadline : null;
 
     if (revealAt == null || now < revealAt) {
@@ -308,9 +390,20 @@ export function hintValue(station: Station, kind: HintKind, now: number): string
 }
 
 export function buildView(snap: Snapshot, pid: string, now: number, chatSince = 0, d: Derived = derive(snap, now)): RoomView {
-  const history: HistoryItem[] = d.revealed.map((i) => ({ index: i, station: activeStation(snap, i), entries: allEntries(snap, i) }));
+  const plays = jokerPlays(snap);
+  const history: HistoryItem[] = d.revealed.map((i) => {
+    const entries = allEntries(snap, i);
+    return { index: i, station: activeStation(snap, i), entries, plays: publicPlays(plays, i, entries) };
+  });
   const totals: Record<string, number> = {};
-  for (const h of history) for (const [id, e] of Object.entries(h.entries)) totals[id] = (totals[id] ?? 0) + (e?.score ?? 0);
+  for (const h of history) {
+    for (const [id, e] of Object.entries(h.entries)) totals[id] = (totals[id] ?? 0) + (e?.score ?? 0);
+    // Pickpocket : les points passent de la cible au voleur.
+    for (const p of h.plays ?? []) if (p.points && p.target) {
+      totals[p.pid] = (totals[p.pid] ?? 0) + p.points;
+      totals[p.target] = (totals[p.target] ?? 0) - p.points;
+    }
+  }
   // Points de la Breaking News (comptés dès la révélation)
   const newsRevealed = d.newsDone || d.news?.phase === 'reveal';
   if (newsRevealed) for (const p of snap.players) totals[p.id] = (totals[p.id] ?? 0) + (newsAnswerOf(snap, p.id)?.score ?? 0);
@@ -340,6 +433,24 @@ export function buildView(snap: Snapshot, pid: string, now: number, chatSince = 
     const isRevealed = cur.revealAt != null;
     const station = activeStation(snap, i);
     const myHints = hintsOf(snap, i, pid);
+    const mine = plays.filter((p) => p.round === i && p.pid === pid && !p.blocked);
+    const spy = mine.find((p) => p.id === 'espion');
+    const spiedEntry = spy?.target ? entryOf(snap, i, spy.target) : null;
+    const attacks: Attack[] = plays
+      .filter((p) => p.round === i && p.target === pid && !p.blocked)
+      .map((p) => ({
+        id: p.id,
+        from: p.pid,
+        // Brouilleur : 10 s ; Brouillard : toute la manche ; les autres : simple avis de 6 s.
+        until: p.id === 'brouilleur' ? p.at + JAMMER_MS : p.id === 'brouillard' ? cur.deadline : p.at + 6000,
+      }));
+    const jokers: MyJokerRound = {
+      active: mine.map((p) => p.id),
+      radar: mine.some((p) => p.id === 'radar') ? radarFor(snap, i, pid) : null,
+      probeKm: mine.find((p) => p.id === 'seconde')?.probeKm ?? null,
+      spied: spy?.target && spiedEntry?.lat != null ? { pid: spy.target, lat: spiedEntry.lat, lon: spiedEntry.lon! } : null,
+      attacks,
+    };
     round = {
       index: i,
       phase: isRevealed ? 'revealed' : 'listening',
@@ -354,6 +465,8 @@ export function buildView(snap: Snapshot, pid: string, now: number, chatSince = 
         hintValues: Object.fromEntries(myHints.map((k) => [k, hintValue(station, k, now)])),
         ready: snap.raw[F.ready(i, pid)] === '1',
         entry: isRevealed ? finalEntry(snap, i, pid) : entryOf(snap, i, pid),
+        deadline: personalDeadline(snap, i, pid, cur.start, plays),
+        jokers,
       },
       // Les punaises des autres restent secrètes jusqu'à la révélation.
       entries: isRevealed ? allEntries(snap, i) : null,
@@ -375,7 +488,22 @@ export function buildView(snap: Snapshot, pid: string, now: number, chatSince = 
     breakingNews: snap.raw[F.newsOpt] === '1',
     news: d.news ? buildNewsView(snap, pid, d.news) : null,
     newsResult: d.newsDone ? { answer: newsInfo(snap), entries: newsEntries(snap) } : null,
+    jokersEnabled: jokersEnabled(snap),
+    myJokers: { hand: handOf(snap, pid), used: plays.filter((p) => p.pid === pid).map((p) => p.id) },
   };
+}
+
+/** Jokers d'une manche vus par tous, avec les points volés (jamais plus que la manche de la cible). */
+function publicPlays(plays: JokerPlay[], i: number, entries: Record<string, DuelEntry>): PublicPlay[] {
+  return plays
+    .filter((p) => p.round === i)
+    .map((p) => ({
+      pid: p.pid,
+      id: p.id,
+      target: p.target,
+      blocked: !!p.blocked,
+      ...(p.id === 'pickpocket' && !p.blocked && p.target ? { points: stolenPoints(entries[p.target]?.score ?? 0) } : {}),
+    }));
 }
 
 function buildNewsView(snap: Snapshot, pid: string, n: NewsTiming): NewsView {

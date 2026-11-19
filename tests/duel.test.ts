@@ -322,3 +322,110 @@ describe('Breaking News', () => {
     expect(v.round?.index).toBe(1);
   });
 });
+
+describe('jokers', () => {
+  /** Salon à 3 avec des mains choisies et jokers activés ; renvoie le début de la manche 1. */
+  async function setupJokers(hands: [string[], string[], string[]], enabled = true, now = T0) {
+    const h = await createRoom('Alice', now, ROUNDS, { hand: hands[0] });
+    code = h.code;
+    alice = cred(h);
+    bob = cred(await joinRoom(code, 'Bob', NOBODY, now + 100, { hand: hands[1] }));
+    carol = cred(await joinRoom(code, 'Carol', NOBODY, now + 200, { hand: hands[2] }));
+    if (enabled) await act(code, alice, { action: 'options', jokers: true }, now + 300);
+    await act(code, alice, { action: 'start' }, now + 1000);
+    return now + 1000 + COUNTDOWN_MS;
+  }
+  const play = (who: Credentials, id: string, at: number, extra: { target?: string; lat?: number; lon?: number; round?: number } = {}) =>
+    act(code, who, { action: 'joker', round: extra.round ?? 0, id, ...extra }, at);
+
+  it('option de l’hôte, main nettoyée, refus si désactivés', async () => {
+    const t = await setupJokers([['double', 'double', 'bidon', 'radar'], [], []], false);
+    const v = await getRoom(code, alice, t + 10);
+    expect(v.jokersEnabled).toBe(false);
+    expect(v.myJokers.hand).toEqual(['double', 'radar']);
+    await expect(play(alice, 'double', t + 20)).rejects.toMatchObject({ message: 'Jokers désactivés dans ce salon' });
+  });
+
+  it('vérifications : main, une fois par partie, cible, épingle validée', async () => {
+    const t = await setupJokers([['double', 'brouilleur'], ['bouclier'], []]);
+    await expect(play(alice, 'radar', t + 10)).rejects.toMatchObject({ message: 'Ce joker n’est pas dans votre main' });
+    await expect(play(alice, 'brouilleur', t + 20)).rejects.toMatchObject({ message: 'Cible invalide' });
+    await expect(play(alice, 'brouilleur', t + 30, { target: alice.playerId! })).rejects.toMatchObject({ message: 'Cible invalide' });
+    await play(alice, 'double', t + 40);
+    await expect(play(alice, 'double', t + 50)).rejects.toMatchObject({ message: 'Joker déjà joué dans cette partie' });
+    const v = await getRoom(code, alice, t + 60);
+    expect(v.myJokers.used).toEqual(['double']);
+    expect(v.chat.at(-1)?.text).toBe('Alice joue « Double fréquence ».');
+  });
+
+  it('Double fréquence et Indices offerts comptent dans le score', async () => {
+    const t = await setupJokers([['double', 'indices'], [], []]);
+    await play(alice, 'double', t + 10);
+    await play(alice, 'indices', t + 20);
+    await act(code, alice, { action: 'hint', round: 0, kind: 'continent' }, t + 30);
+    const r = await act(code, alice, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 40);
+    expect(r.view.round?.you.entry?.score).toBe(10_000); // 5 000 sans indice payé, ×2
+  });
+
+  it('Antenne longue : 30 s de plus pour moi, la manche attend', async () => {
+    const t = await setupJokers([['antenne'], [], []]);
+    await play(alice, 'antenne', t + 10);
+    await act(code, bob, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 20);
+    await act(code, carol, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 30);
+    const mid = await getRoom(code, alice, t + ROUND_TIME_MS + 10_000);
+    expect(mid.round).toMatchObject({ phase: 'listening' });
+    expect(mid.round?.you.deadline).toBe(t + ROUND_TIME_MS + 30_000);
+    // Bob a déjà répondu ; un joueur sans Antenne ne peut plus envoyer après ses 90 s.
+    const r = await act(code, alice, { action: 'guess', round: 0, lat: 1, lon: 0 }, t + ROUND_TIME_MS + 20_000);
+    expect(r.view.round?.phase).toBe('revealed');
+  });
+
+  it('Brouilleur visible chez la victime ; Bouclier arrête la première attaque', async () => {
+    const t = await setupJokers([['brouilleur', 'pickpocket'], ['bouclier'], []]);
+    await play(alice, 'brouilleur', t + 1000, { target: carol.playerId! });
+    const c = await getRoom(code, carol, t + 2000);
+    expect(c.round?.you.jokers.attacks).toEqual([{ id: 'brouilleur', from: alice.playerId, until: t + 1000 + 10_000 }]);
+    await play(bob, 'bouclier', t + 3000);
+    await play(alice, 'pickpocket', t + 4000, { target: bob.playerId! });
+    const b = await getRoom(code, bob, t + 5000);
+    expect(b.round?.you.jokers.attacks).toEqual([]);
+    expect(b.chat.at(-1)?.text).toBe('Alice joue « Pickpocket » sur Bob. Le Bouclier de Bob l’arrête !');
+  });
+
+  it('Pickpocket : 500 points passent de la cible au voleur', async () => {
+    const t = await setupJokers([['pickpocket'], [], []]);
+    await play(alice, 'pickpocket', t + 10, { target: bob.playerId! });
+    await act(code, alice, { action: 'guess', round: 0, lat: 40, lon: 40 }, t + 20); // loin : peu de points
+    await act(code, bob, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 30); // 5 000
+    const r = await act(code, carol, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 40);
+    const total = (pid: string) => r.view.players.find((p) => p.id === pid)!.total;
+    const base = r.view.round!.entries!;
+    expect(total(bob.playerId!)).toBe(base[bob.playerId!]!.score - 500);
+    expect(total(alice.playerId!)).toBe(base[alice.playerId!]!.score + 500);
+    expect(r.view.history[0]?.plays).toEqual([{ pid: alice.playerId, id: 'pickpocket', target: bob.playerId, blocked: false, points: 500 }]);
+  });
+
+  it('Taxe : le prochain indice de la cible coûte double, même dans une manche suivante', async () => {
+    const t = await setupJokers([['taxe'], [], []]);
+    await play(alice, 'taxe', t + 10, { target: bob.playerId! });
+    await act(code, bob, { action: 'hint', round: 0, kind: 'language' }, t + 20);
+    await act(code, bob, { action: 'hint', round: 0, kind: 'continent' }, t + 30); // seul le premier est taxé
+    const r = await act(code, bob, { action: 'guess', round: 0, lat: 0, lon: 0 }, t + 40);
+    expect(r.view.round?.you.entry?.score).toBe(5000 - 500 * 2 - 1000);
+  });
+
+  it('Radar, Seconde écoute, Espion : informations pour moi seul', async () => {
+    const t = await setupJokers([['radar', 'espion'], ['seconde'], []]);
+    await play(alice, 'radar', t + 10);
+    await play(alice, 'espion', t + 20, { target: carol.playerId! });
+    await expect(play(bob, 'seconde', t + 30)).rejects.toMatchObject({ message: 'Posez d’abord votre épingle' });
+    await play(bob, 'seconde', t + 40, { lat: 0, lon: 1 });
+    await act(code, carol, { action: 'guess', round: 0, lat: 7, lon: 8 }, t + 50);
+    const a = await getRoom(code, alice, t + 60);
+    expect(a.round?.you.jokers.radar).not.toBeNull();
+    expect(a.round?.you.jokers.spied).toEqual({ pid: carol.playerId, lat: 7, lon: 8 });
+    const b = await getRoom(code, bob, t + 70);
+    expect(b.round?.you.jokers.probeKm).toBeCloseTo(111, 0);
+    expect(b.round?.you.jokers.radar).toBeNull();
+  });
+});

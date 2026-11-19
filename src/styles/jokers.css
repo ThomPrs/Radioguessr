@@ -210,17 +210,38 @@
 .solo-timer { margin: 6px 0 2px; }
 
 /* Joker Brouillard : la carte se noie dans la brume */
-.leaflet-container.is-foggy::after {
-  content: '';
+.map-sheet { position: relative; }
+.map-fog {
   position: absolute;
   inset: 0;
-  z-index: 450;
+  z-index: 900; /* au-dessus des tracés, sous les boutons de zoom */
   pointer-events: none;
   background:
-    radial-gradient(ellipse at 20% 30%, rgb(240 236 228 / 0.9), transparent 55%),
-    radial-gradient(ellipse at 75% 65%, rgb(232 228 220 / 0.92), transparent 60%),
-    rgb(236 232 224 / 0.86);
-  backdrop-filter: blur(6px);
+    radial-gradient(ellipse at 20% 30%, rgb(240 236 228 / 0.55), transparent 55%),
+    radial-gradient(ellipse at 75% 65%, rgb(232 228 220 / 0.6), transparent 60%),
+    rgb(236 232 224 / 0.62);
+  backdrop-filter: blur(3px);
   animation: fog-drift 9s ease-in-out infinite alternate;
 }
 @keyframes fog-drift { to { background-position: 10% 0, -10% 0, 0 0; opacity: 0.94; } }
+
+/* Choix de la cible (jokers multi) */
+.joker-targets { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 100%; }
+.joker-target { padding: 4px 10px; font-size: 0.85rem; background: #fbf6ea; border: 2px solid rgb(58 54 50 / 0.3); border-radius: 14px; color: var(--ink); }
+.joker-target.is-picked { border-color: var(--player); box-shadow: 0 0 0 2px var(--player); font-weight: bold; }
+/* Attaque reçue */
+.joker-attack {
+  margin: 6px 0;
+  padding: 8px 12px;
+  background: var(--stamp-red);
+  color: var(--paper);
+  font-family: var(--font-title);
+  font-size: 0.9rem;
+  transform: rotate(-1deg);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.35);
+  animation: attack-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes attack-in { from { transform: scale(1.4) rotate(-4deg); opacity: 0; } }
+.waiting-hand { width: 100%; align-self: stretch; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 8px; margin: 4px 0 8px; }
+.waiting-hand .voucher { max-width: none; }
+.duel-steal { margin: 4px 0; font-size: 0.85rem; color: var(--stamp-red); font-weight: bold; }
